@@ -1,6 +1,7 @@
 import json
 import time
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Dict
 
@@ -17,13 +18,15 @@ class MemoryManager:
     def __init__(self, db_path: str = "data/memory.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(self.db_path))
+        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self._lock = threading.Lock()
         self._ensure_tables()
         self.vector_store = LocalVectorStore()
 
     def _ensure_tables(self) -> None:
-        c = self.conn.cursor()
-        c.execute(
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute(
             """
         CREATE TABLE IF NOT EXISTS signals(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,12 +41,13 @@ class MemoryManager:
             timestamp INTEGER
         )
         """
-        )
-        self.conn.commit()
+            )
+            self.conn.commit()
 
     def update(self, user_token: str, signal: Dict[str, Any]) -> None:
-        c = self.conn.cursor()
-        c.execute(
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute(
             """
         INSERT INTO signals(user_token,event_type,item_token,item_category,session_context,engagement_depth,dwell_time_seconds,sequence_position,timestamp)
         VALUES(?,?,?,?,?,?,?,?,?)
@@ -59,15 +63,16 @@ class MemoryManager:
                 signal.get("sequence_position"),
                 int(time.time()),
             ),
-        )
-        self.conn.commit()
+            )
+            self.conn.commit()
         # persist minimal vector/key mapping for demo purposes
         key = f"{user_token}:{signal.get('item_token') or ''}"
         self.vector_store.add(key, [0.0], {"item_category": signal.get("item_category")})
 
     def retrieve_all(self, user_token: str) -> Dict[str, Any]:
-        c = self.conn.cursor()
-        c.execute("SELECT * FROM signals WHERE user_token=? ORDER BY id DESC LIMIT 50", (user_token,))
-        rows = c.fetchall()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute("SELECT * FROM signals WHERE user_token=? ORDER BY id DESC LIMIT 50", (user_token,))
+            rows = c.fetchall()
         is_cold = len(rows) == 0
         return {"session": rows, "is_cold_start": is_cold}

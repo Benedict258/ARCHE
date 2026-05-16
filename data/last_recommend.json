@@ -1,0 +1,60 @@
+{
+    "user_token":  "user_123",
+    "simulation_basis":  "cold_start_prior",
+    "recommendations":  [
+                            {
+                                "recommendation_id":  "1bc028b2-28b6-49e9-b474-25bcf0214cfb",
+                                "item_name":  "general_interest_recommendation_1",
+                                "item_category":  "general_interest",
+                                "confidence":  0.85,
+                                "recommendation_type":  "precision",
+                                "exploration_factor":  "Precision recommendation — within core preference cluster",
+                                "explanation":  "Matched to simulated preference cluster 'social' with affinity 'general_interest'. Basis: cold_start_prior."
+                            },
+                            {
+                                "recommendation_id":  "f622acb2-c9cf-4b1a-8e42-f44f52f0ca2c",
+                                "item_name":  "general_interest_recommendation_2",
+                                "item_category":  "general_interest",
+                                "confidence":  0.84,
+                                "recommendation_type":  "precision",
+                                "exploration_factor":  "Precision recommendation — within core preference cluster",
+                                "explanation":  "Matched to simulated preference cluster 'social' with affinity 'general_interest'. Basis: cold_start_prior."
+                            },
+                            {
+                                "recommendation_id":  "3a354b80-1080-4d91-86bf-87e4e8abfe05",
+                                "item_name":  "general_interest_recommendation_3",
+                                "item_category":  "general_interest",
+                                "confidence":  0.83,
+                                "recommendation_type":  "precision",
+                                "exploration_factor":  "Precision recommendation — within core preference cluster",
+                                "explanation":  "Matched to simulated preference cluster 'social' with affinity 'general_interest'. Basis: cold_start_prior."
+                            },
+                            {
+                                "recommendation_id":  "c8004c20-54b7-4337-94bb-1c39de42481a",
+                                "item_name":  "adjacent_to_general_interest_rec_1",
+                                "item_category":  "adjacent_to_general_interest",
+                                "confidence":  0.6,
+                                "recommendation_type":  "adjacent_exploration",
+                                "exploration_factor":  "Adjacent exploration — similar but broader items",
+                                "explanation":  "Exploration injection near 'general_interest' to broaden discovery. Simulation basis: cold_start_prior."
+                            },
+                            {
+                                "recommendation_id":  "7e19a6e2-7c3d-4bb2-bedb-1ecd20aa0569",
+                                "item_name":  "novel_discovery_1",
+                                "item_category":  "discovery",
+                                "confidence":  0.35,
+                                "recommendation_type":  "discovery",
+                                "exploration_factor":  "Discovery injection — novel item for serendipity",
+                                "explanation":  "Deliberate discovery pick to maintain diversity. Simulation confidence: 0.4."
+                            },
+                            {
+                                "recommendation_id":  "9faa3cf7-64bf-4217-bff5-ab18735ca37e",
+                                "item_name":  "novel_discovery_2",
+                                "item_category":  "discovery",
+                                "confidence":  0.34,
+                                "recommendation_type":  "discovery",
+                                "exploration_factor":  "Discovery injection — novel item for serendipity",
+                                "explanation":  "Deliberate discovery pick to maintain diversity. Simulation confidence: 0.4."
+                            }
+                        ]
+}
