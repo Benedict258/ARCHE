@@ -134,7 +134,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          pytest tests/integration/ -v --tb=short || true
+          pytest tests/test_integration.py -v --tb=short || true
 
       - name: Test API health endpoint
         run: |

@@ -449,13 +449,6 @@ async def recommend(payload: RecommendRequest, request: Request):
             )
         recommendations.append(rec)
 
-    return RecommendationSet(
-        user_token=payload.user_token,
-        simulation_basis=simulation.simulation_basis,
-        recommendations=recommendations,
-    )
-
-
     # persist last recommendations for explainability/debug/demo
     try:
         out_path = Path("data/last_recommend.json")
@@ -470,9 +463,17 @@ async def recommend(payload: RecommendRequest, request: Request):
     except Exception:
         pass
 
+    return RecommendationSet(
+        user_token=payload.user_token,
+        simulation_basis=simulation.simulation_basis,
+        recommendations=recommendations,
+    )
+
 
 @app.post("/v1/explain", response_model=ExplainResponse)
 async def explain(payload: ExplainRequest, request: Request):
+    from fastapi import HTTPException
+    
     _ensure_app_state()
     privacy: PrivacyAbstraction = request.app.state.privacy
     storage_token = privacy.anonymize_token(payload.user_token, "user") or payload.user_token
@@ -486,7 +487,7 @@ async def explain(payload: ExplainRequest, request: Request):
 
     if not doc or doc.get("user_token") != payload.user_token:
         # fallback: return minimal trace
-        raise ValueError("No recent recommendations found for this user")
+        raise HTTPException(status_code=404, detail="No recent recommendations found for this user")
 
     recs = doc.get("recommendations") or []
     found = None
@@ -496,7 +497,7 @@ async def explain(payload: ExplainRequest, request: Request):
             break
 
     if not found:
-        raise ValueError("Recommendation not found in last run")
+        raise HTTPException(status_code=404, detail="Recommendation not found in last run")
 
     # Build a simple causal trace
     simulation = _build_simulation_response(payload.user_token, SimulateContext(**{}), {"session": [], "is_cold_start": True})
