@@ -1,0 +1,10 @@
+[
+  {
+    "user_token": "user_demo_ada",
+    "description": "Ada - new user, evening mobile"
+  },
+  {
+    "user_token": "user_demo_chidi",
+    "description": "Chidi - returning user"
+  }
+]

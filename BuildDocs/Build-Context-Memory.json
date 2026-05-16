@@ -1,0 +1,354 @@
+{
+  "project_identity": {
+    "name": "BuildContextMemory",
+    "description": "A lightweight system that preserves project memory and AI behavior consistency across sessions and tools.",
+    "version": "0.1.0",
+    "stack": [
+      "Markdown",
+      "JSON"
+    ],
+    "architecture_summary": "Two-file system: AI_Starter.md defines AI behavior; Build-Context-Memory.json stores append-only project/session memory.",
+    "repo_url": "https://github.com/AgentBase-io/BuildContextMemory",
+    "created_at": "2026-05-08T00:00:00Z"
+  },
+  "sessions": [
+    {
+      "session_id": "session_001",
+      "timestamp": "2026-05-08T17:00:00Z",
+      "ai_agent": "GitHub Copilot Task Agent",
+      "current_phase": "Foundation Setup",
+      "progress": {
+        "completed": [
+          "Initialized starter memory schema",
+          "Defined AI starter operating rules"
+        ],
+        "in_progress": [
+          "Preparing complete project documentation"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Project initialized with base AI starter and memory files.",
+      "changes_made": [
+        "Created initial AI starter instruction file",
+        "Created initial Build-Context-Memory.json template"
+      ],
+      "file_module_map": [
+        {
+          "file": "AI_Starter.md",
+          "purpose": "Defines mandatory behavior and workflow for AI agents",
+          "last_modified": "2026-05-08T17:00:00Z"
+        },
+        {
+          "file": "Build-Context-Memory.json",
+          "purpose": "Stores persistent project identity and session history",
+          "last_modified": "2026-05-08T17:00:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Use append-only session tracking",
+          "reason": "Preserves historical decisions and prevents accidental context loss",
+          "alternatives_considered": "Single mutable status block"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "PRD/Architecture/Dev plan content not yet authored",
+          "severity": "low",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [],
+      "next_steps": [
+        "Create README with full onboarding instructions",
+        "Add placeholder templates for PRD, ARCHITECTURE, and DEV_PLAN",
+        "Define and start first scoped implementation task"
+      ],
+      "notes": "Starter framework is ready for handoff across AI sessions."
+    }
+    ,
+    {
+      "session_id": "session_002",
+      "timestamp": "2026-05-16T12:00:00Z",
+      "ai_agent": "GitHub Copilot Task Agent",
+      "current_phase": "Accelerated 4-Day Sprint - Day 0",
+      "progress": {
+        "completed": [
+          "Reviewed PRD & Architecture",
+          "Added requirements.txt",
+          "Initialized git repo and created branch feature/hackathon-core",
+          "Created BuildDocs/Development Phases.md"
+        ],
+        "in_progress": [
+          "Setup dev environment & install dependencies"
+        ],
+        "blocked": [
+          "chromadb version mismatch during pip install"
+        ]
+      },
+      "last_session_summary": "Initialized repository, added base requirements, created feature branch, attempted dependency install which failed on chromadb version.",
+      "changes_made": [
+        "Created BuildDocs/Development Phases.md",
+        "Added requirements.txt",
+        "Initialized git repo and branch feature/hackathon-core"
+      ],
+      "file_module_map": [
+        {
+          "file": "BuildDocs/Development Phases.md",
+          "purpose": "Compressed 4-day development phases derived from PRD and Architecture",
+          "last_modified": "2026-05-16T12:00:00Z"
+        },
+        {
+          "file": "requirements.txt",
+          "purpose": "Base dependency list",
+          "last_modified": "2026-05-16T11:55:00Z"
+        },
+        {
+          "file": "(repo)",
+          "purpose": "Initialized git repo and branch feature/hackathon-core",
+          "last_modified": "2026-05-16T11:58:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Compress 17-day plan into 4-day round-the-clock sprint",
+          "reason": "User requested a 4-day finish; achieving this requires parallelization and extra engineers, pre-caching of demo outputs, and strict scope discipline.",
+          "alternatives_considered": "Stick to 17-day plan; extend timeline; reduce scope to only demo playback"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "chromadb==0.3.36 not available via pip",
+          "severity": "medium",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [
+        {
+          "error": "pip install failed for chromadb==0.3.36",
+          "context": "Installing dependencies from requirements.txt",
+          "resolution": "Pending: update requirements.txt to supported chromadb version or add local fallback vector store"
+        }
+      ],
+      "next_steps": [
+        "Update requirements.txt to supported chromadb version or add memory/local_vector_store.py fallback",
+        "Implement Memory Layer scaffolding (memory/) and FastAPI health endpoint",
+        "Implement POST /v1/ingest with privacy abstraction"
+      ],
+      "notes": "All future meaningful changes will be appended as new session objects per AI_Starter.md rules."
+    }
+    ,
+    {
+      "session_id": "session_003",
+      "timestamp": "2026-05-16T12:10:00Z",
+      "ai_agent": "GitHub Copilot Task Agent",
+      "current_phase": "Accelerated 4-Day Sprint - Day 0 (scaffold)",
+      "progress": {
+        "completed": [
+          "Added local vector store fallback (memory/local_vector_store.py)",
+          "Added MemoryManager scaffold (memory/memory_manager.py)",
+          "Added FastAPI health endpoint (api/main.py)",
+          "Added demo/mock_data sample files"
+        ],
+        "in_progress": [
+          "Install dependencies with updated requirements.txt"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Scaffolded memory and API health endpoint, added demo data, updated requirements to chromadb==0.5.23.",
+      "changes_made": [
+        "memory/local_vector_store.py",
+        "memory/memory_manager.py",
+        "api/main.py",
+        "demo/mock_data/*",
+        "requirements.txt"
+      ],
+      "file_module_map": [
+        {
+          "file": "memory/local_vector_store.py",
+          "purpose": "Local vector store fallback for dev/demo",
+          "last_modified": "2026-05-16T12:08:00Z"
+        },
+        {
+          "file": "memory/memory_manager.py",
+          "purpose": "Memory manager scaffold using sqlite and local vector store",
+          "last_modified": "2026-05-16T12:09:00Z"
+        },
+        {
+          "file": "api/main.py",
+          "purpose": "FastAPI health endpoint",
+          "last_modified": "2026-05-16T12:06:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Add local fallback vector store",
+          "reason": "chromadb pip install failure and desire to continue development without external vector DB",
+          "alternatives_considered": "Pin a different chromadb release; run external service; mock embeddings"
+        }
+      ],
+      "known_issues": [],
+      "errors_encountered": [],
+      "next_steps": [
+        "Retry pip install with updated requirements.txt",
+        "Wire POST /v1/ingest to MemoryManager.update()",
+        "Implement basic privacy anonymization helper"
+      ],
+      "notes": "Continue appending session objects after each meaningful change."
+    }
+    ,
+    {
+      "session_id": "session_004",
+      "timestamp": "2026-05-16T12:25:00Z",
+      "ai_agent": "GitHub Copilot Task Agent",
+      "current_phase": "Accelerated 4-Day Sprint - Day 0 (environment ready)",
+      "progress": {
+        "completed": [
+          "Reworked requirements.txt to wheel-friendly unpinned dependencies",
+          "Installed core Python dependencies successfully",
+          "Verified API import and MemoryManager smoke test"
+        ],
+        "in_progress": [
+          "Implement Data Ingestion & Privacy Layer"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Scaffolded memory fallback, memory manager, health endpoint, and demo data; dependency installation was still blocked by version constraints.",
+      "changes_made": [
+        "requirements.txt",
+        "api/main.py",
+        "memory/local_vector_store.py",
+        "memory/memory_manager.py",
+        "demo/mock_data/users.json",
+        "demo/mock_data/products.json",
+        "demo/mock_data/interactions.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "requirements.txt",
+          "purpose": "Wheel-friendly dependency manifest for Python 3.13",
+          "last_modified": "2026-05-16T12:23:00Z"
+        },
+        {
+          "file": "api/main.py",
+          "purpose": "FastAPI app with /v1/health endpoint",
+          "last_modified": "2026-05-16T12:06:00Z"
+        },
+        {
+          "file": "memory/memory_manager.py",
+          "purpose": "SQLite-backed memory manager with local vector fallback",
+          "last_modified": "2026-05-16T12:08:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Use unpinned core dependencies",
+          "reason": "Python 3.13 compatibility required wheel-based packages instead of source builds that were stalling installation.",
+          "alternatives_considered": "Keep strict pins; downgrade Python; keep chromadb and build from source"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "Memory layer is scaffolded, not fully integrated with API ingestion yet",
+          "severity": "medium",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [],
+      "next_steps": [
+        "Implement POST /v1/ingest with privacy abstraction",
+        "Add request schemas for behavioral signals",
+        "Wire MemoryManager into the FastAPI app"
+      ],
+      "notes": "Import smoke test passed: ARCHE API title visible and cold-start path returns true."
+    },
+    {
+      "session_id": "session_005",
+      "timestamp": "2026-05-16T12:40:00Z",
+      "ai_agent": "GitHub Copilot Task Agent",
+      "current_phase": "Accelerated 4-Day Sprint - Day 2 (ingestion/privacy)",
+      "progress": {
+        "completed": [
+          "Implemented POST /v1/ingest",
+          "Added deterministic privacy abstraction for token hashing and context redaction",
+          "Wired MemoryManager into FastAPI app state"
+        ],
+        "in_progress": [
+          "Validate endpoint request/response flow"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Added an authenticated-free ingest path that anonymizes user and item tokens before persisting signals through MemoryManager.",
+      "changes_made": [
+        "api/main.py",
+        "BuildDocs/Build-Context-Memory.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "api/main.py",
+          "purpose": "FastAPI app with health and ingest endpoints plus privacy abstraction",
+          "last_modified": "2026-05-16T12:40:00Z"
+        },
+        {
+          "file": "memory/memory_manager.py",
+          "purpose": "SQLite-backed memory manager receiving anonymized signals",
+          "last_modified": "2026-05-16T12:09:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Use deterministic hashing for privacy abstraction",
+          "reason": "Keeps demo behavior stable while avoiding raw token storage in the memory layer.",
+          "alternatives_considered": "Store raw identifiers; use random UUIDs per request; defer privacy handling to later stage"
+        }
+      ],
+      "known_issues": [],
+      "errors_encountered": [],
+      "next_steps": [
+        "Add request/response validation tests for /v1/ingest",
+        "Implement /v1/simulate using anonymized memory history",
+        "Expand privacy abstraction for additional sensitive fields"
+      ],
+      "notes": "MemoryManager is now reachable from the API and ingest payloads are sanitized before persistence."
+    }
+    ,
+    {
+      "session_id": "session_006",
+      "timestamp": "2026-05-16T12:50:00Z",
+      "ai_agent": "GitHub Copilot Task Agent",
+      "current_phase": "Accelerated 4-Day Sprint - Day 2 (ingestion/privacy)",
+      "progress": {
+        "completed": [
+          "Implemented POST /v1/ingest",
+          "Added deterministic privacy abstraction for token hashing and context redaction",
+          "Wired MemoryManager into FastAPI app state",
+          "Added tests/test_ingest.py and executed smoke test"
+        ],
+        "in_progress": [
+          "Add request/response validation tests for /v1/ingest"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Added an automated smoke test for /v1/ingest that posts a sample signal and verifies anonymization and persistence call behavior.",
+      "changes_made": [
+        "tests/test_ingest.py"
+      ],
+      "file_module_map": [
+        {
+          "file": "tests/test_ingest.py",
+          "purpose": "Smoke test for POST /v1/ingest",
+          "last_modified": "2026-05-16T12:50:00Z"
+        }
+      ],
+      "decisions_log": [],
+      "known_issues": [],
+      "errors_encountered": [],
+      "next_steps": [
+        "Commit tests and implementation to branch feature/hackathon-core",
+        "Expand validation tests and add CI job to run tests",
+        "Proceed to implement /v1/simulate using anonymized memory history"
+      ],
+      "notes": "Smoke test executed locally via TestClient; response indicates privacy abstraction and MemoryManager wiring are functioning in the dev environment."
+    }
+  ]
+}
