@@ -1,0 +1,44 @@
+[
+  {
+    "user_token": "bench_b_1",
+    "recommended_items": [
+      "fashion_recommendation_1",
+      "fashion_recommendation_2",
+      "fashion_recommendation_3",
+      "item_047882af69329936",
+      "item_047882af69329936"
+    ],
+    "relevant_items": [
+      "fashion_recommendation_1",
+      "novel_discovery_1"
+    ]
+  },
+  {
+    "user_token": "bench_b_2",
+    "recommended_items": [
+      "books_recommendation_1",
+      "books_recommendation_2",
+      "books_recommendation_3",
+      "books_recommendation_4",
+      "item_047882af69329936"
+    ],
+    "relevant_items": [
+      "books_recommendation_1",
+      "novel_discovery_1"
+    ]
+  },
+  {
+    "user_token": "bench_b_3",
+    "recommended_items": [
+      "food_recommendation_1",
+      "food_recommendation_2",
+      "food_recommendation_3",
+      "item_047882af69329936",
+      "item_047882af69329936"
+    ],
+    "relevant_items": [
+      "food_recommendation_1",
+      "adjacent_to_food_recommendation_1"
+    ]
+  }
+]

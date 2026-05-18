@@ -7,16 +7,22 @@ ARCHE is a FastAPI-based hackathon prototype for behavioral signal ingestion, pr
 - `GET /v1/health` for a simple health check
 - `POST /v1/ingest` for behavioral signal ingestion
 - `POST /v1/simulate` for heuristic user simulation from memory + context
+- `POST /v1/simulate-review` for Task A review simulation from user history + unseen item
+- `POST /v1/recommend` for exploration-aware ranking
+- `POST /v1/explain` for recommendation explainability
 - Deterministic privacy abstraction that hashes user/item tokens and redacts sensitive nested fields
 - `MemoryManager` wiring in the API app state
 - SQLite-backed memory storage with a local vector store fallback for development
+- Lightweight Docker containerization for local submission readiness
 
 ## Project structure
 
 - `api/` — FastAPI application entrypoint and routes
 - `memory/` — memory manager and local vector fallback
+- `data/` — dataset pipelines and evaluation helpers
 - `BuildDocs/` — planning, architecture, and context memory files
 - `demo/` — sample data for demos
+- `frontend/` — React + Vite + Tailwind demo UI
 - `tests/` — API smoke tests
 
 ## Setup
@@ -44,6 +50,19 @@ Then open:
 
 - Health check: http://127.0.0.1:8000/v1/health
 - Interactive docs: http://127.0.0.1:8000/docs
+
+## Run with Docker
+
+```powershell
+docker compose up --build
+```
+
+Then open:
+
+- Health check: http://127.0.0.1:8000/v1/health
+- Interactive docs: http://127.0.0.1:8000/docs
+
+Environment variables can be copied from `.env.example`.
 
 ## Ingest example
 
@@ -104,7 +123,16 @@ Invoke-RestMethod `
 ## Tests
 
 ```powershell
-python -m pytest tests/test_ingest.py tests/test_simulate.py -q
+python -m pytest tests/test_ingest.py tests/test_simulate.py tests/test_task_a.py -q
+```
+
+## Evaluation
+
+Use the evaluation runner for metric summaries:
+
+```powershell
+python data/evaluation/run_evaluation.py A path\to\task_a_results.json
+python data/evaluation/run_evaluation.py B path\to\task_b_results.json --k 10
 ```
 
 ## Notes

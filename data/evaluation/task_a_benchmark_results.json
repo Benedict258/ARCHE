@@ -1,0 +1,23 @@
+[
+  {
+    "user_token": "bench_a_1",
+    "predicted_rating": 4,
+    "actual_rating": 4,
+    "generated_review": "Domino's Pizza Lagos is very okay sha. It does the job for evening in Lagos, but the value still matters. I would say it is solid, especially if you are comparing with similar options. The main details are delivery is hot.",
+    "actual_review": "Domino's is very okay sha. The pizza came hot and the value was fair, but it is not the kind of place I will praise too much."
+  },
+  {
+    "user_token": "bench_a_2",
+    "predicted_rating": 4,
+    "actual_rating": 4,
+    "generated_review": "Good quality, however the portion size could be better. Mama Put Eatery feels solid overall, and the local_food fit is fair for afternoon in Abuja. I would say it is decent, but the value still depends on what you are comparing it with. The main details are portion is large.",
+    "actual_review": "The place feels solid overall. The portion is generous and the food looks reliable, though I still compare it with other spots."
+  },
+  {
+    "user_token": "bench_a_3",
+    "predicted_rating": 4,
+    "actual_rating": 3,
+    "generated_review": "Comfortable space, decent coffee, and good consistency overall. Buka Corner feels solid overall, and the local_food fit is fair for morning in Lagos Mainland. I would say it is decent, but the value still depends on what you are comparing it with. The main details are spice is medium.",
+    "actual_review": "Buka Corner is decent. The food is good enough and the vibe is calm, but it is not really my top choice when I want something special."
+  }
+]

@@ -1,0 +1,38 @@
+services:
+  arche-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      ARCHE_PRIVACY_SALT: ${ARCHE_PRIVACY_SALT:-arche-demo-salt}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/memory.db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CHROMADB_HOST: ${CHROMADB_HOST:-chromadb}
+      CHROMADB_PORT: ${CHROMADB_PORT:-8000}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - chromadb
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
