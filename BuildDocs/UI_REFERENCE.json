@@ -1,0 +1,47 @@
+{
+  "purpose": "Compact UI reference for designers and frontend devs",
+  "tokens": {
+    "colors": {
+      "accent_1": "#fd5200",
+      "brand_1": "#1A3DE8",
+      "bg_light": "#F5F0E8",
+      "black": "#000000",
+      "white": "#FFFFFF"
+    },
+    "font": "Plus Jakarta Sans, ui-sans-serif, system-ui, sans-serif"
+  },
+  "layout": {
+    "sections": "full-bleed, min-h-screen; responsive typography via clamp()",
+    "component_path": "/components/ui"
+  },
+  "components": [
+    {
+      "name": "FlowArt",
+      "description": "Scroll-driven container that pins sections and manages GSAP ScrollTrigger animations",
+      "props": [
+        {"name": "className", "type": "string", "optional": true},
+        {"name": "aria-label", "type": "string", "optional": true},
+        {"name": "children", "type": "ReactNode", "optional": false}
+      ],
+      "dependencies": ["gsap", "@gsap/react"]
+    },
+    {
+      "name": "FlowSection",
+      "description": "Full-screen panel used inside FlowArt; accepts inline style for background and color",
+      "props": [
+        {"name": "className", "type": "string", "optional": true},
+        {"name": "style", "type": "React.CSSProperties", "optional": true},
+        {"name": "children", "type": "ReactNode", "optional": false},
+        {"name": "aria-label", "type": "string", "optional": true}
+      ]
+    }
+  ],
+  "dependencies": ["gsap", "@gsap/react", "tw-animate-css", "lucide-react"],
+  "integration_steps": [
+    "Create /components/ui and copy component code from BuildDocs/UI.md",
+    "Install dependencies",
+    "Extend Tailwind globals: import tailwindcss and tw-animate-css and set --font-sans",
+    "Replace demo image placeholders with Unsplash assets",
+    "Test responsive typography and reduced-motion preference"
+  ]
+}
