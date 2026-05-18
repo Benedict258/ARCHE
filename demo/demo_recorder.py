@@ -228,14 +228,14 @@ class DemoRecorder:
             
             for rec in rec_resp["recommendations"][:2]:  # Explain first 2 for each
                 rec_id = rec["recommendation_id"]
-                payload = {"recommendation_id": rec_id}
+                payload = {"recommendation_id": rec_id, "user_token": user}
                 
                 try:
                     resp, duration = self._api_call("POST", "/v1/explain", payload)
                     print(f"\n  Recommendation ID: {rec_id[:8]}...")
                     print(f"    Item: {rec['item_name']}")
                     print(f"    Type: {rec['recommendation_type']}")
-                    print(f"    Explanation: {resp.get('explanation', 'N/A')[:100]}...")
+                    print(f"    Trace: {resp.get('trace', 'N/A')[:100]}...")
                     print(f"    Duration: {duration:.2f}ms")
                     self._save_response("/v1/explain", payload, resp, duration)
                     explained.append(resp)
@@ -312,7 +312,7 @@ class DemoRecorder:
         # Stage 4: Explain (top recommendation)
         print("  Stage 4: Explainability")
         if rec_id:
-            exp_payload = {"recommendation_id": rec_id}
+            exp_payload = {"recommendation_id": rec_id, "user_token": user}
             try:
                 resp, duration = self._api_call("POST", "/v1/explain", exp_payload)
                 print(f"    ✓ Generated explanation ({duration:.2f}ms)")

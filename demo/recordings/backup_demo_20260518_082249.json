@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-05-18T08:22:49.974056Z",
+  "flow": "ingest->recommend->explain",
+  "status_codes": {
+    "ingest": 200,
+    "recommend": 200,
+    "explain": 200
+  },
+  "user_token": "demo_user_june10",
+  "recommendation_id": "a5789fc4-f858-405f-a860-d9979af7c62b",
+  "simulation_basis": "historical_memory:1",
+  "top_item": "fashion_recommendation_1",
+  "trace_excerpt": "Recommendation a5789fc4-f858-405f-a860-d9979af7c62b chosen because: Matched to simulated preference cluster 'fashion' with affinity 'fashion'. Basis: historical_memory:1. Alternati"
+}

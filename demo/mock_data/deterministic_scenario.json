@@ -1,0 +1,28 @@
+{
+  "user_token": "demo_user_june10",
+  "signal": {
+    "event_type": "view",
+    "item_token": "prod_ankara_tote",
+    "item_category": "fashion",
+    "session_context": {
+      "time_bucket": "evening",
+      "device_class": "mobile",
+      "entry_point": "social",
+      "region_tier": "urban",
+      "day_type": "weekday",
+      "session_depth": 2
+    },
+    "engagement_depth": 0.88,
+    "dwell_time_seconds": 55,
+    "sequence_position": 1
+  },
+  "recommend_request": {
+    "user_token": "demo_user_june10",
+    "context": {
+      "time_bucket": "evening",
+      "device_class": "mobile",
+      "entry_point": "social"
+    },
+    "n": 5
+  }
+}
