@@ -281,7 +281,7 @@ class TestExplainPerformance:
         
         metrics = PerformanceMetrics("POST /v1/explain")
         
-        explain_payload = {"recommendation_id": rec_id}
+        explain_payload = {"recommendation_id": rec_id, "user_token": "exp_user_1"}
         
         metrics.start()
         resp = client.post("/v1/explain", json=explain_payload)
@@ -346,7 +346,7 @@ class TestEndToEndPerformance:
         
         # 4. Explain
         exp_time = time.perf_counter()
-        exp_payload = {"recommendation_id": rec_id}
+        exp_payload = {"recommendation_id": rec_id, "user_token": user_token}
         resp = client.post("/v1/explain", json=exp_payload)
         exp_duration = (time.perf_counter() - exp_time) * 1000
         assert resp.status_code == 200
