@@ -1,16 +1,45 @@
 # ARCHE — System Architecture & Development Plan
+
 ## DSN x BCT LLM Agent Challenge Hackathon 3.0
 
 ---
 
-| Field | Detail |
-|---|---|
+| Field         | Detail                                        |
+| ------------- | --------------------------------------------- |
 | Document Type | System Architecture & 17-Day Development Plan |
-| Version | v1.0 |
-| Hackathon | DSN x BCT LLM Agent Challenge 3.0 |
-| Deadline | May 24, 2026 |
-| Demo Day | June 10, 2026 — Eko Hotel, Lagos |
-| Team | AI Engineer + Backend Dev + Fullstack Dev |
+| Version       | v1.0                                          |
+| Hackathon     | DSN x BCT LLM Agent Challenge 3.0             |
+| Deadline      | May 24, 2026                                  |
+| Demo Day      | June 10, 2026 — Eko Hotel, Lagos              |
+| Team          | AI Engineer + Backend Dev + Fullstack Dev     |
+
+---
+
+## MVP Freeze Status (May 18, 2026)
+
+This section is the source of truth for what is implemented in this repository right now.
+
+### Implemented Now (In Repo)
+
+- API layer: `GET /v1/health`, `POST /v1/ingest`, `POST /v1/simulate`, `POST /v1/recommend`, `POST /v1/explain` in `api/main.py`
+- Privacy abstraction: deterministic hash-and-redact in ingest flow
+- Memory layer: SQLite metadata + local vector fallback in `memory/`
+- Recommendation engine: 60/25/15 split with deterministic explain flow from persisted recommendation output
+- SDK: async Python client in `sdk/client.py`
+- Orchestrator: lightweight sequential pipeline in `orchestrator/pipeline.py`
+- Frontend demo: React + Vite + Tailwind in `frontend/` with recommend/explain integration
+
+### Deferred to Roadmap (Post-Hackathon)
+
+- Full LangGraph graph orchestration with specialized agent nodes
+- Dedicated `agents/` implementations for simulation/retrieval/context/explainability
+- PostgreSQL + Redis production memory architecture
+- Route modularization + auth/rate-limit middleware split
+- Next.js enterprise dashboard and expanded analytics views
+
+### Architecture Note
+
+Sections below describe the target architecture vision. Use this status section for submission and implementation truth.
 
 ---
 
@@ -75,20 +104,20 @@ ARCHE's hackathon build follows five non-negotiable architectural principles:
 
 ## 2. Full Tech Stack
 
-| Component | Technology | Why |
-|---|---|---|
-| LLM | Claude API (claude-sonnet-4-6) | Best reasoning, tool use, structured output |
-| Agent Framework | LangChain / LangGraph | Multi-agent orchestration, ReAct support |
-| Vector Store | ChromaDB | Local, fast, zero infra setup for hackathon |
-| Backend API | Python + FastAPI | Async-native, auto-docs, high performance |
-| Task Queue | Celery + Redis | Background processing, async ingestion |
-| Primary Database | PostgreSQL | Structured behavioral metadata storage |
-| Session Cache | Redis | Session memory, hot profile caching |
-| Frontend | React + Next.js + TailwindCSS | Demo dashboard |
-| Hosting | Railway or Render | Fast zero-ops deployment |
-| Python SDK | arche-sdk (local package) | Demonstrates infrastructure capability |
-| Environment | Python 3.11+ | FastAPI async support |
-| Package Manager | pip + requirements.txt | Simple, standard |
+| Component        | Technology                     | Why                                         |
+| ---------------- | ------------------------------ | ------------------------------------------- |
+| LLM              | Claude API (claude-sonnet-4-6) | Best reasoning, tool use, structured output |
+| Agent Framework  | LangChain / LangGraph          | Multi-agent orchestration, ReAct support    |
+| Vector Store     | ChromaDB                       | Local, fast, zero infra setup for hackathon |
+| Backend API      | Python + FastAPI               | Async-native, auto-docs, high performance   |
+| Task Queue       | Celery + Redis                 | Background processing, async ingestion      |
+| Primary Database | PostgreSQL                     | Structured behavioral metadata storage      |
+| Session Cache    | Redis                          | Session memory, hot profile caching         |
+| Frontend         | React + Next.js + TailwindCSS  | Demo dashboard                              |
+| Hosting          | Railway or Render              | Fast zero-ops deployment                    |
+| Python SDK       | arche-sdk (local package)      | Demonstrates infrastructure capability      |
+| Environment      | Python 3.11+                   | FastAPI async support                       |
+| Package Manager  | pip + requirements.txt         | Simple, standard                            |
 
 ---
 
@@ -489,6 +518,7 @@ Authentication: X-API-Key: your_api_key (header)
 ```
 
 #### POST /v1/ingest
+
 ```json
 // Request
 {
@@ -518,6 +548,7 @@ Authentication: X-API-Key: your_api_key (header)
 ```
 
 #### POST /v1/simulate
+
 ```json
 // Request
 {
@@ -546,6 +577,7 @@ Authentication: X-API-Key: your_api_key (header)
 ```
 
 #### POST /v1/recommend
+
 ```json
 // Request
 {
@@ -676,9 +708,9 @@ class PrivacyLayer:
     def abstract_signal(self, raw_signal: dict) -> BehavioralSignal:
         """
         Convert raw interaction data to privacy-safe behavioral signal.
-        
+
         Input:  { "user_id": "ada.okonkwo@email.com", "product": "Red Ankara Bag", ... }
-        Output: { "user_token": "sha256hash...", "item_token": "sha256hash...", 
+        Output: { "user_token": "sha256hash...", "item_token": "sha256hash...",
                   "item_category": "fashion", "engagement_depth": 0.7, ... }
         """
         return BehavioralSignal(
@@ -694,7 +726,9 @@ class PrivacyLayer:
 ## 9. Dashboard — Key UI Components
 
 ### SimulationView.jsx
+
 Shows the behavioral simulation running live:
+
 - User profile card (behavioral cluster, top affinities, intent)
 - Simulation progress indicator
 - Context signals being injected (time, device, region)
@@ -702,14 +736,18 @@ Shows the behavioral simulation running live:
 - Memory sources being retrieved
 
 ### RecommendationView.jsx
+
 Shows the recommendation output:
+
 - 10 recommendation cards with item name, confidence, type badge (precision/exploration/discovery)
 - Exploration ratio indicator (60/25/15 split visualization)
 - Diversity score gauge
 - Each card expandable to show full reasoning trace
 
 ### ExplainabilityView.jsx
+
 Full reasoning trace panel:
+
 - Primary signal explanation
 - Context signal
 - Exploration factor
@@ -717,7 +755,9 @@ Full reasoning trace panel:
 - Alternatives considered with rejection reasons
 
 ### BusinessDashboard.jsx
+
 SME owner view:
+
 - Customer behavioral segments map
 - Recommendation acceptance rate over time
 - Top recommended categories by segment
@@ -732,7 +772,9 @@ SME owner view:
 ---
 
 #### DAY 1 — Setup & Foundation
+
 **All team**
+
 - [ ] GitHub repo created, branching strategy agreed
 - [ ] `.env.example` created with all required keys
 - [ ] `docker-compose.yml` — PostgreSQL, Redis, ChromaDB
@@ -747,7 +789,9 @@ SME owner view:
 ---
 
 #### DAY 2 — Memory Layer
+
 **AI Engineer + Backend Dev**
+
 - [ ] ChromaDB collection setup — `behavioral_embeddings`
 - [ ] PostgreSQL tables: `users`, `signals`, `sessions`, `cohorts`
 - [ ] Redis session cache connection and basic get/set
@@ -760,7 +804,9 @@ SME owner view:
 ---
 
 #### DAY 3 — Data Collection & Privacy Layer
+
 **Backend Dev**
+
 - [ ] `BehavioralSignal` Pydantic schema
 - [ ] `PrivacyLayer` class — `anonymize_user_token()`, `strip_pii()`, `abstract_signal()`
 - [ ] `POST /v1/ingest` endpoint working
@@ -773,9 +819,11 @@ SME owner view:
 ---
 
 #### DAYS 4–5 — User Simulation Engine (Core Build)
+
 **AI Engineer**
 
 Day 4:
+
 - [ ] `SimulationAgent` class skeleton
 - [ ] System prompt engineering for behavioral simulation
 - [ ] `_build_simulation_prompt()` — takes memory + context → generates LLM prompt
@@ -783,6 +831,7 @@ Day 4:
 - [ ] Test simulation with mock user data
 
 Day 5:
+
 - [ ] Simulation quality testing — outputs are coherent and useful
 - [ ] Prompt refinement — better behavioral snapshots
 - [ ] Edge case handling — partial memory, old memory
@@ -793,7 +842,9 @@ Day 5:
 ---
 
 #### DAY 6 — Cold Start System
+
 **AI Engineer**
+
 - [ ] `_cold_start_simulate()` method in Simulation Agent
 - [ ] Population cohort priors — build 5 behavioral clusters from mock data
 - [ ] Context-only inference — device + time + region → cluster mapping
@@ -805,7 +856,9 @@ Day 5:
 ---
 
 #### DAYS 7 — Recommendation Engine
+
 **AI Engineer**
+
 - [ ] `RecommendationAgent` class
 - [ ] Catalog scoring against simulation snapshot
 - [ ] 60/25/15 split implementation — precision/adjacent/discovery
@@ -818,7 +871,9 @@ Day 5:
 ---
 
 #### DAY 8 — Explainability System
+
 **AI Engineer**
+
 - [ ] `ExplainabilityAgent` class
 - [ ] Explanation prompt engineering — causal, specific, honest
 - [ ] `ReasoningTrace` output parser
@@ -831,7 +886,9 @@ Day 5:
 ---
 
 #### DAY 9 — LangGraph Orchestrator
+
 **AI Engineer + Backend Dev**
+
 - [ ] `ARCHEState` TypedDict defined
 - [ ] All agent nodes wired into LangGraph graph
 - [ ] Pipeline flow: retrieve → context → simulate → recommend → explain → security
@@ -843,7 +900,9 @@ Day 5:
 ---
 
 #### DAY 10 — Multi-Agent Integration & Context Agent
+
 **AI Engineer + Backend Dev**
+
 - [ ] `ContextAgent` class — time/device/region signal processing
 - [ ] Context modifiers calculated and injected into simulation
 - [ ] Time-of-day demo: same user → morning recommendations vs evening recommendations visible
@@ -855,7 +914,9 @@ Day 5:
 ---
 
 #### DAY 11 — FastAPI Endpoints Polish
+
 **Backend Dev**
+
 - [ ] All endpoints complete: /ingest, /simulate, /recommend, /explain, /profile, /feedback, /health
 - [ ] Request validation on all endpoints
 - [ ] Error responses — proper HTTP codes and messages
@@ -868,7 +929,9 @@ Day 5:
 ---
 
 #### DAY 12 — Python SDK
+
 **Backend Dev**
+
 - [ ] `sdk/client.py` — `ARCHE` class with all methods
 - [ ] `sdk/models.py` — SDK data models matching API schemas
 - [ ] Methods: `ingest()`, `simulate()`, `recommend()`, `explain()`, `feedback()`
@@ -881,7 +944,9 @@ Day 5:
 ---
 
 #### DAY 13 — Dashboard Frontend
+
 **Fullstack Dev**
+
 - [ ] React + Next.js project setup with Tailwind
 - [ ] `SimulationView` — behavioral snapshot visualization
 - [ ] `RecommendationView` — 10 recommendation cards with confidence and type badges
@@ -895,7 +960,9 @@ Day 5:
 ---
 
 #### DAY 14 — Demo Preparation & Polish
+
 **All team**
+
 - [ ] 3 demo personas prepared with realistic data:
   - Ada: new user (cold start demo)
   - Chidi: returning user (3 sessions)
@@ -911,7 +978,9 @@ Day 5:
 ---
 
 #### DAY 15 — End-to-End Integration Testing
+
 **All team**
+
 - [ ] Full pipeline tested with all 3 demo personas
 - [ ] Cold start → returning user transition tested
 - [ ] Explainability quality reviewed — all traces genuinely informative
@@ -925,7 +994,9 @@ Day 5:
 ---
 
 #### DAY 16 — Bug Fixes, Polish & Submission Package
+
 **All team**
+
 - [ ] All bugs identified in Day 15 fixed
 - [ ] UI final polish pass
 - [ ] Submission document prepared (README, project description, demo link)
@@ -938,7 +1009,9 @@ Day 5:
 ---
 
 #### DAY 17 — Dry Run & June 10 Preparation
+
 **All team**
+
 - [ ] Full demo dry run — timed at 7 minutes
 - [ ] Q&A preparation — anticipated judge questions and answers
 - [ ] Architecture diagram ready for technical questions
@@ -952,47 +1025,49 @@ Day 5:
 
 ## 11. Performance Targets
 
-| Metric | Target |
-|---|---|
-| Full pipeline latency (p50) | < 2 seconds |
-| Full pipeline latency (p99) | < 4 seconds |
-| API endpoint latency | < 500ms for cached profiles |
-| Cold start simulation | < 3 seconds |
-| Recommendation diversity score | > 0.5 |
-| Explainability completeness | 100% — every recommendation explained |
-| Exploration ratio | 35–40% of recommendations |
+| Metric                         | Target                                |
+| ------------------------------ | ------------------------------------- |
+| Full pipeline latency (p50)    | < 2 seconds                           |
+| Full pipeline latency (p99)    | < 4 seconds                           |
+| API endpoint latency           | < 500ms for cached profiles           |
+| Cold start simulation          | < 3 seconds                           |
+| Recommendation diversity score | > 0.5                                 |
+| Explainability completeness    | 100% — every recommendation explained |
+| Exploration ratio              | 35–40% of recommendations             |
 
 ---
 
 ## 12. Risk Register & Mitigations
 
-| Risk | Probability | Impact | Mitigation |
-|---|---|---|---|
-| LLM API slow during live demo | Medium | High | Pre-cache simulation outputs for all 3 demo personas |
-| Scope too ambitious — not finished | Medium | High | Core 3 layers are non-negotiable. Everything else is enhancement. Ship core first. |
-| LangGraph complexity delays build | Medium | Medium | Day 9 has buffer. If needed, replace LangGraph with simple sequential pipeline. |
-| Demo breaks live on stage | Low | High | Full backup screen recording ready. Practice failover narrative. |
-| ChromaDB slow on Railway | Low | Medium | Pre-warm embeddings before demo. Use Redis cache as first check. |
-| Dashboard not polished enough | Medium | Medium | Fullstack Dev focuses 100% on dashboard Days 13–16. |
+| Risk                               | Probability | Impact | Mitigation                                                                         |
+| ---------------------------------- | ----------- | ------ | ---------------------------------------------------------------------------------- |
+| LLM API slow during live demo      | Medium      | High   | Pre-cache simulation outputs for all 3 demo personas                               |
+| Scope too ambitious — not finished | Medium      | High   | Core 3 layers are non-negotiable. Everything else is enhancement. Ship core first. |
+| LangGraph complexity delays build  | Medium      | Medium | Day 9 has buffer. If needed, replace LangGraph with simple sequential pipeline.    |
+| Demo breaks live on stage          | Low         | High   | Full backup screen recording ready. Practice failover narrative.                   |
+| ChromaDB slow on Railway           | Low         | Medium | Pre-warm embeddings before demo. Use Redis cache as first check.                   |
+| Dashboard not polished enough      | Medium      | Medium | Fullstack Dev focuses 100% on dashboard Days 13–16.                                |
 
 ---
 
 ## 13. Team Responsibilities
 
-| Team Member | Primary Layers | Secondary |
-|---|---|---|
-| AI Engineer | L1 (Simulation), L2 (Recommendation), L3 (Explainability), L6 (Orchestrator), L7 (Multi-Agent) | Code review on L4, L5 |
-| Backend Dev | L4 (Memory), L5 (Privacy), L8 (SDK + API), Database, Deployment | Support L6 orchestrator wiring |
-| Fullstack Dev | Demo Dashboard, API integration, UI/UX, demo data preparation | Support L8 SDK documentation |
+| Team Member   | Primary Layers                                                                                 | Secondary                      |
+| ------------- | ---------------------------------------------------------------------------------------------- | ------------------------------ |
+| AI Engineer   | L1 (Simulation), L2 (Recommendation), L3 (Explainability), L6 (Orchestrator), L7 (Multi-Agent) | Code review on L4, L5          |
+| Backend Dev   | L4 (Memory), L5 (Privacy), L8 (SDK + API), Database, Deployment                                | Support L6 orchestrator wiring |
+| Fullstack Dev | Demo Dashboard, API integration, UI/UX, demo data preparation                                  | Support L8 SDK documentation   |
 
 ---
 
 ## 14. June 10 Demo Script
 
 ### Opening (30 seconds)
-*"Modern recommendation systems are broken. They're static, context-blind, and operate as black boxes. ARCHE is the infrastructure that fixes this — through behavioral simulation, exploration-aware ranking, and complete explainability. Let us show you."*
+
+_"Modern recommendation systems are broken. They're static, context-blind, and operate as black boxes. ARCHE is the infrastructure that fixes this — through behavioral simulation, exploration-aware ranking, and complete explainability. Let us show you."_
 
 ### Act 1 — Cold Start (90 seconds)
+
 - Open dashboard — New user: Ada. Zero history.
 - "Ada just arrived. No purchase history. Most systems show generic popular items."
 - "ARCHE's Simulation Engine activates — inferring from her device, time, location."
@@ -1002,6 +1077,7 @@ Day 5:
 - "First session. Zero history. Genuinely personalized."
 
 ### Act 2 — Returning User + Context (90 seconds)
+
 - Switch to Chidi — returning user, 3 sessions
 - Show his behavioral profile — cluster, affinities, evolution
 - "Watch what happens when we change the context — it's now morning."
@@ -1010,25 +1086,29 @@ Day 5:
 - Show exploration split: 6 precision, 3 adjacent, 1 discovery
 
 ### Act 3 — Explainability (60 seconds)
+
 - Click on recommendation #1
 - Full reasoning trace expands
 - "Why did ARCHE recommend this? Primary signal: Cluster 7B fashion affinity. Context: Evening mobile boosts fashion 34%. Exploration: Item is 23% outside core cluster — discovery injection. Why now: Trending 38% in cohort this week."
 - "Every recommendation. Fully explained. Always."
 
 ### Act 4 — Business Dashboard (60 seconds)
+
 - Switch to SME owner view
 - Show customer segments, recommendation acceptance rate, diversity scores
 - "This is what the business sees. Customer intelligence. Not a black box."
 
 ### Act 5 — Infrastructure Proof (60 seconds)
+
 - Open API explorer — live call to `/v1/recommend`
 - Show JSON response with recommendations + reasoning
 - "This is infrastructure. Any African enterprise plugs in with one API key."
 - Show SDK quickstart — 5 lines of Python
 
 ### Close (30 seconds)
-*"ARCHE is not a recommendation chatbot. It is the intelligence layer that simulates who your customers are, recommends what they actually need, and tells you exactly why — built as infrastructure for African enterprises. BCT can deploy this for their clients tomorrow."*
+
+_"ARCHE is not a recommendation chatbot. It is the intelligence layer that simulates who your customers are, recommends what they actually need, and tells you exactly why — built as infrastructure for African enterprises. BCT can deploy this for their clients tomorrow."_
 
 ---
 
-*ARCHE System Architecture & Development Plan v1.0 — DSN x BCT LLM Agent Challenge 3.0 — Confidential*
+_ARCHE System Architecture & Development Plan v1.0 — DSN x BCT LLM Agent Challenge 3.0 — Confidential_
