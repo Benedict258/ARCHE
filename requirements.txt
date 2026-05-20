@@ -8,3 +8,6 @@ redis
 requests
 pytest
 pandas
+langgraph
+langchain
+langchain-anthropic

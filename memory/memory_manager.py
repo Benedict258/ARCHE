@@ -2,6 +2,7 @@ import json
 import time
 import sqlite3
 import threading
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Dict
 
@@ -67,7 +68,11 @@ class MemoryManager:
             self.conn.commit()
         # persist minimal vector/key mapping for demo purposes
         key = f"{user_token}:{signal.get('item_token') or ''}"
-        self.vector_store.add(key, [0.0], {"item_category": signal.get("item_category")})
+        self.vector_store.add(
+            key,
+            self._text_to_vector(f"{signal.get('item_category') or ''}::{signal.get('item_token') or ''}"),
+            {"item_category": signal.get("item_category"), "item_token": signal.get("item_token")},
+        )
 
     def retrieve_all(self, user_token: str) -> Dict[str, Any]:
         with self._lock:
@@ -76,3 +81,8 @@ class MemoryManager:
             rows = c.fetchall()
         is_cold = len(rows) == 0
         return {"session": rows, "is_cold_start": is_cold}
+
+    @staticmethod
+    def _text_to_vector(text: str, dim: int = 16) -> list[float]:
+        digest = sha256(text.encode("utf-8")).digest()
+        return [round(digest[idx % len(digest)] / 255.0, 4) for idx in range(dim)]

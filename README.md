@@ -10,6 +10,9 @@ ARCHE is a FastAPI-based hackathon prototype for behavioral signal ingestion, pr
 - `POST /v1/simulate-review` for Task A review simulation from user history + unseen item
 - `POST /v1/recommend` for exploration-aware ranking
 - `POST /v1/explain` for recommendation explainability
+- Task A routed through `api/routes/task_a.py` -> `LangGraphStyleOrchestrator.route_task_a(...)`
+- Task B routed through `api/routes/task_b.py` -> `LangGraphStyleOrchestrator.route_task_b(...)`
+- Dedicated `ReviewGenerationAgent` (`agents/review_generation_agent.py`) for Task A generation
 - Deterministic privacy abstraction that hashes user/item tokens and redacts sensitive nested fields
 - `MemoryManager` wiring in the API app state
 - SQLite-backed memory storage with a local vector store fallback for development
@@ -141,3 +144,5 @@ python data/evaluation/run_evaluation.py B path\to\task_b_results.json --k 10
 - Nested sensitive values in `session_context` are redacted through the privacy abstraction.
 - `/v1/simulate` is currently heuristic-driven and uses memory history when available.
 - The memory layer is optimized for local development and demo usage.
+- MVP alignment note: the runtime uses `LangGraphStyleOrchestrator` (explicit multi-agent routing, sequential execution).
+- Full native LangGraph DAG orchestration with specialized nodes remains roadmap scope and is not required for current MVP submission.

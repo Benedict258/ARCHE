@@ -12,9 +12,13 @@ from pydantic import BaseModel, Field
 
 from memory.memory_manager import MemoryManager
 from api.routes.task_a import router as task_a_router
+from api.routes.task_b import router as task_b_router
+from orchestrator import LangGraphStyleOrchestrator
+from data.dataset_loader import UnifiedDatasetLoader
 
 app = FastAPI(title="ARCHE API (hackathon)", version="0.1.0")
 app.include_router(task_a_router)
+app.include_router(task_b_router)
 
 
 class IngestSignal(BaseModel):
@@ -177,6 +181,14 @@ def _ensure_app_state() -> None:
         app.state.memory_manager = MemoryManager()
     if not hasattr(app.state, "privacy"):
         app.state.privacy = PrivacyAbstraction()
+    if not hasattr(app.state, "dataset_loader"):
+        app.state.dataset_loader = UnifiedDatasetLoader()
+    if not hasattr(app.state, "agent_graph"):
+        app.state.agent_graph = LangGraphStyleOrchestrator(
+            memory_manager=app.state.memory_manager,
+            privacy=app.state.privacy,
+            dataset_loader=app.state.dataset_loader,
+        )
 
 
 def _normalize_value(value: Any, default: str) -> str:
@@ -317,6 +329,18 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/v1/datasets/status")
+async def dataset_status():
+    _ensure_app_state()
+    loader: UnifiedDatasetLoader = app.state.dataset_loader
+    catalog = loader.load_catalog(limit_per_source=5)
+    return {
+        "has_real_datasets": loader.has_real_datasets(),
+        "catalog_size": len(catalog),
+        "sources": sorted({item.get("source", "unknown") for item in catalog}),
+    }
+
+
 @app.post("/v1/ingest", response_model=IngestResponse)
 async def ingest(payload: IngestRequest, request: Request):
     _ensure_app_state()
@@ -339,284 +363,8 @@ async def ingest(payload: IngestRequest, request: Request):
 @app.post("/v1/simulate", response_model=SimulationResponse)
 async def simulate(payload: SimulateRequest, request: Request):
     _ensure_app_state()
-    privacy: PrivacyAbstraction = request.app.state.privacy
-    memory_manager: MemoryManager = request.app.state.memory_manager
-    storage_token = privacy.anonymize_token(payload.user_token, "user") or payload.user_token
-    memory_payload = memory_manager.retrieve_all(storage_token)
-    return _build_simulation_response(payload.user_token, payload.context, memory_payload)
-
-
-@app.post("/v1/recommend", response_model=RecommendationSet)
-async def recommend(payload: RecommendRequest, request: Request):
-    """Generate a balanced recommendation set using the simulation output.
-
-    Pipeline: retrieve memory -> simulate -> generate precision/adjacent/discovery mixes.
-    """
-    _ensure_app_state()
-    privacy: PrivacyAbstraction = request.app.state.privacy
-    memory_manager: MemoryManager = request.app.state.memory_manager
-
-    storage_token = privacy.anonymize_token(payload.user_token, "user") or payload.user_token
-    memory_payload = memory_manager.retrieve_all(storage_token)
-    simulation = _build_simulation_response(payload.user_token, payload.context, memory_payload)
-
-    n = max(1, payload.n)
-    precision_share = 0.68 if simulation.simulation_basis.startswith("historical_memory:") else 0.58
-    if simulation.behavioral_snapshot.current_intent == "active_purchase":
-        precision_share += 0.05
-    if simulation.behavioral_snapshot.exploration_readiness < 0.5:
-        precision_share += 0.05
-    precision_share = min(0.82, precision_share)
-
-    adjacent_share = 0.22
-    if simulation.behavioral_snapshot.exploration_readiness >= 0.7:
-        adjacent_share += 0.04
-    adjacent_share = min(0.3, adjacent_share)
-
-    n_precision = max(1, int(round(n * precision_share)))
-    n_adjacent = max(0, int(round(n * adjacent_share)))
-    if n_precision + n_adjacent > n:
-        n_adjacent = max(0, n - n_precision)
-    n_discovery = max(0, n - n_precision - n_adjacent)
-    if n > 4 and n_discovery > 1 and simulation.behavioral_snapshot.exploration_readiness < 0.6:
-        n_discovery = 1
-        n_adjacent = max(0, n - n_precision - n_discovery)
-
-    affinities = simulation.behavioral_snapshot.top_affinities or ["general_interest"]
-    affinity_set = {aff.lower() for aff in affinities}
-
-    def _candidate_score(entry: dict[str, str], priority: str) -> float:
-        category = (entry.get("item_category") or "unknown").lower()
-        item_name = (entry.get("item_name") or "").lower()
-        score = 0.0
-        if priority == "precision":
-            if category in affinity_set:
-                score += 3.0
-            elif any(category == f"adjacent_to_{a}" for a in affinity_set):
-                score += 1.5
-            if simulation.behavioral_snapshot.current_intent == "active_purchase":
-                score += 0.4
-        elif priority == "adjacent_exploration":
-            if category.startswith("adjacent_to_"):
-                score += 2.0
-            if any(a in category for a in affinity_set):
-                score += 0.8
-            score += 0.2 * simulation.behavioral_snapshot.exploration_readiness
-        else:
-            if category == "discovery":
-                score += 2.5
-            elif category not in affinity_set:
-                score += 1.0
-            score += 0.2 * simulation.cold_start_confidence
-        if payload.context.entry_point == "search" and priority == "precision":
-            score += 0.15
-        if payload.context.device_class == "mobile" and category in {"fashion", "food", "social"}:
-            score += 0.1
-        if category in item_name:
-            score += 0.05
-        return score
-
-    try:
-        candidates = memory_manager.vector_store.query([0.0], top_k=50)
-    except Exception:
-        candidates = []
-
-    seen_keys: set[str] = set()
-    precision_items: list[dict[str, str]] = []
-    adjacent_items: list[dict[str, str]] = []
-    other_items: list[dict[str, str]] = []
-
-    for key, meta in candidates:
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        cat = meta.get("item_category") if isinstance(meta, dict) else None
-        item_name = key.split(":", 1)[-1] or f"item_{len(seen_keys)}"
-        entry = {"key": key, "item_name": item_name, "item_category": cat or "unknown"}
-        if isinstance(cat, str) and cat.lower() in affinity_set:
-            precision_items.append(entry)
-        elif isinstance(cat, str) and cat.lower().startswith("adjacent_to_"):
-            adjacent_items.append(entry)
-        else:
-            other_items.append(entry)
-
-    precision_items.sort(key=lambda entry: (-_candidate_score(entry, "precision"), entry["item_name"]))
-    adjacent_items.sort(key=lambda entry: (-_candidate_score(entry, "adjacent_exploration"), entry["item_name"]))
-    other_items.sort(key=lambda entry: (-_candidate_score(entry, "discovery"), entry["item_name"]))
-
-    recommendations: list[Recommendation] = []
-
-    for i in range(n_precision):
-        if i < len(precision_items):
-            it = precision_items[i]
-            base_name = (it["item_category"] or affinities[i % len(affinities)]).replace("adjacent_to_", "")
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=f"{base_name}_recommendation_{i+1}",
-                item_category=it["item_category"],
-                confidence=round(0.88 - (i * 0.015), 2),
-                recommendation_type="precision",
-                exploration_factor="Precision recommendation — within core preference cluster",
-                explanation=(
-                    f"Matched to simulated preference cluster '{simulation.behavioral_snapshot.preference_cluster}' "
-                    f"with affinity '{it['item_category']}'. Context '{simulation.context_modifiers.active_context}' and basis {simulation.simulation_basis}."
-                ),
-            )
-        else:
-            affinity = affinities[i % len(affinities)]
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=f"{affinity}_recommendation_{i+1}",
-                item_category=affinity,
-                confidence=round(0.88 - (i * 0.015), 2),
-                recommendation_type="precision",
-                exploration_factor="Precision recommendation — within core preference cluster",
-                explanation=(
-                    f"Matched to simulated preference cluster '{simulation.behavioral_snapshot.preference_cluster}' "
-                    f"with affinity '{affinity}'. Context '{simulation.context_modifiers.active_context}' and basis {simulation.simulation_basis}."
-                ),
-            )
-        recommendations.append(rec)
-
-    for i in range(n_adjacent):
-        if i < len(adjacent_items):
-            it = adjacent_items[i]
-            base_name = (it["item_category"] or affinities[i % len(affinities)]).replace("adjacent_to_", "")
-            adjacent_name = f"adjacent_to_{base_name}_recommendation_{i+1}"
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=adjacent_name,
-                item_category=it["item_category"],
-                confidence=round(0.68 - (i * 0.012), 2),
-                recommendation_type="adjacent_exploration",
-                exploration_factor="Adjacent exploration — similar but broader items",
-                explanation=(
-                    f"Exploration injection near user's affinities to broaden discovery. Simulation basis: {simulation.simulation_basis} and context {simulation.context_modifiers.active_context}."
-                ),
-            )
-        elif i < len(other_items):
-            it = other_items[i]
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=it["item_name"],
-                item_category=it["item_category"],
-                confidence=round(0.64 - (i * 0.012), 2),
-                recommendation_type="adjacent_exploration",
-                exploration_factor="Adjacent exploration — similar but broader items",
-                explanation=(
-                    f"Exploration injection near user's affinities to broaden discovery. Simulation basis: {simulation.simulation_basis} and context {simulation.context_modifiers.active_context}."
-                ),
-            )
-        else:
-            base = affinities[i % len(affinities)]
-            adj_cat = f"adjacent_to_{base}"
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=f"{adj_cat}_rec_{i+1}",
-                item_category=adj_cat,
-                confidence=round(0.64 - (i * 0.012), 2),
-                recommendation_type="adjacent_exploration",
-                exploration_factor="Adjacent exploration — similar but broader items",
-                explanation=(
-                    f"Exploration injection near '{base}' to broaden discovery. Simulation basis: {simulation.simulation_basis} and context {simulation.context_modifiers.active_context}."
-                ),
-            )
-        recommendations.append(rec)
-
-    for i in range(n_discovery):
-        if i < len(other_items):
-            it = other_items[i]
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=it["item_name"],
-                item_category=it["item_category"],
-                confidence=round(0.4 - (i * 0.01), 2),
-                recommendation_type="discovery",
-                exploration_factor="Discovery injection — novel item for serendipity",
-                explanation=(
-                    f"Deliberate discovery pick to maintain diversity. Simulation confidence: {simulation.cold_start_confidence} and context {simulation.context_modifiers.active_context}."
-                ),
-            )
-        else:
-            rec = Recommendation(
-                recommendation_id=str(uuid4()),
-                item_name=f"novel_discovery_{i+1}",
-                item_category="discovery",
-                confidence=round(0.4 - (i * 0.01), 2),
-                recommendation_type="discovery",
-                exploration_factor="Discovery injection — novel item for serendipity",
-                explanation=(
-                    f"Deliberate discovery pick to maintain diversity. Simulation confidence: {simulation.cold_start_confidence} and context {simulation.context_modifiers.active_context}."
-                ),
-            )
-        recommendations.append(rec)
-
-    try:
-        out_path = Path("data/last_recommend.json")
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out = {
-            "user_token": payload.user_token,
-            "simulation_basis": simulation.simulation_basis,
-            "recommendations": [r.model_dump() for r in recommendations],
-            "simulated_at": simulation.simulated_at.isoformat(),
-        }
-        out_path.write_text(json.dumps(out, ensure_ascii=False, default=str), encoding="utf-8")
-    except Exception:
-        pass
-
-    return RecommendationSet(
-        user_token=payload.user_token,
-        simulation_basis=simulation.simulation_basis,
-        recommendations=recommendations,
-    )
-
-
-@app.post("/v1/explain", response_model=ExplainResponse)
-async def explain(payload: ExplainRequest, request: Request):
-    from fastapi import HTTPException
-    
-    _ensure_app_state()
-    privacy: PrivacyAbstraction = request.app.state.privacy
-    storage_token = privacy.anonymize_token(payload.user_token, "user") or payload.user_token
-
-    # load last persisted recommendations
-    try:
-        raw = Path("data/last_recommend.json").read_text(encoding="utf-8")
-        doc = json.loads(raw)
-    except Exception:
-        doc = None
-
-    if not doc or doc.get("user_token") != payload.user_token:
-        # fallback: return minimal trace
-        raise HTTPException(status_code=404, detail="No recent recommendations found for this user")
-
-    recs = doc.get("recommendations") or []
-    found = None
-    for r in recs:
-        if r.get("recommendation_id") == payload.recommendation_id:
-            found = r
-            break
-
-    if not found:
-        raise HTTPException(status_code=404, detail="Recommendation not found in last run")
-
-    # Build a simple causal trace
-    simulation = _build_simulation_response(payload.user_token, SimulateContext(**{}), {"session": [], "is_cold_start": True})
-    alt_recs = [Recommendation(**r) for r in recs if r.get("recommendation_id") != payload.recommendation_id][:5]
-    main_rec = Recommendation(**found)
-    trace = (
-        f"Recommendation {main_rec.recommendation_id} chosen because: {main_rec.explanation} "
-        f"Alternatives considered: {[a.recommendation_id for a in alt_recs]}."
-    )
-
-    return ExplainResponse(
-        user_token=payload.user_token,
-        recommendation_id=payload.recommendation_id,
-        simulation=simulation,
-        recommendation=main_rec,
-        alternatives_considered=alt_recs,
-        trace=trace,
-    )
+    agent_graph: LangGraphStyleOrchestrator = request.app.state.agent_graph
+    return await agent_graph.run_simulation(payload.user_token, payload.context)
 
 
 if __name__ == "__main__":

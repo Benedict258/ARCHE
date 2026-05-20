@@ -14,6 +14,11 @@ Key results in the current MVP:
 - Task B Hit Rate@10: 1.0000
 - Task B Precision@10: 0.2000
 
+Verification note (May 20, 2026): metrics were re-run using
+`python -m data.evaluation.run_evaluation` over
+`data/evaluation/task_a_benchmark_results.json` and
+`data/evaluation/task_b_benchmark_results.json` and match the values above.
+
 ## 1. Introduction
 
 Modern user modeling systems often rely on static preferences or shallow collaborative signals. That breaks down on sparse-history users, culturally specific writing styles, and context-sensitive behavior. ARCHE addresses this by simulating the user before generating a review or ranking a recommendation.
