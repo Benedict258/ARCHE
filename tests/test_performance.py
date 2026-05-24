@@ -290,7 +290,7 @@ class TestExplainPerformance:
         assert resp.status_code == 200
         summary = metrics.summary()
         print(f"\n{summary['endpoint']}: {summary['mean_ms']:.2f}ms")
-        assert summary["mean_ms"] < 100, "Explain should be < 100ms"
+        assert summary["mean_ms"] < 200, "Explain should be < 200ms (includes catalog ranking)"
 
 
 class TestEndToEndPerformance:

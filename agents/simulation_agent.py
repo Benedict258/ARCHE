@@ -4,6 +4,8 @@ import json
 import os
 from typing import Any
 
+import httpx
+
 from .base_agent import BaseAgent, AgentState
 
 
@@ -24,20 +26,57 @@ class SimulationAgent(BaseAgent):
 
     def __init__(self):
         self.llm = None
+        self.llm_provider = None
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
         self._init_llm()
 
     def _init_llm(self):
-        """Initialize Claude API client for behavior simulation."""
+        """Initialize provider chain for behavior simulation.
+
+        Priority:
+        1) Explicit provider via LLM_PROVIDER
+        2) Groq Chat Completions API (OpenAI-compatible endpoint)
+        3) Anthropic (only if Groq is unavailable and the key is present)
+        4) Deterministic heuristic fallback
+        """
+        provider = (os.getenv("LLM_PROVIDER") or "").strip().lower()
+
+        if provider == "groq" and self.groq_api_key:
+            self.llm = "groq"
+            self.llm_provider = "groq"
+            return
+
+        if provider == "anthropic":
+            try:
+                from langchain_anthropic import ChatAnthropic
+                api_key = os.getenv("ANTHROPIC_API_KEY")
+                if api_key:
+                    self.llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", api_key=api_key)
+                    self.llm_provider = "anthropic"
+                    return
+            except ImportError:
+                self.llm = None
+
         try:
             from langchain_anthropic import ChatAnthropic
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key:
-                # Fallback for demo mode
-                self.llm = None
-                return
-            self.llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", api_key=api_key)
         except ImportError:
-            self.llm = None
+            ChatAnthropic = None
+
+        if self.groq_api_key:
+            self.llm = "groq"
+            self.llm_provider = "groq"
+            return
+
+        if ChatAnthropic is not None:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if api_key:
+                self.llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", api_key=api_key)
+                self.llm_provider = "anthropic"
+                return
+
+        self.llm = None
+        self.llm_provider = None
 
     async def run(self, state: AgentState) -> AgentState:
         """Execute the simulation agent node in the LangGraph."""
@@ -99,29 +138,124 @@ What are they ready to explore? What will they reject?
 Return only JSON."""
 
         try:
-            response = await self.llm.ainvoke([
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ])
-            
-            # Parse LLM response
-            content = response.content
+            if self.llm_provider == "anthropic":
+                response = await self.llm.ainvoke([
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ])
+                content = response.content
+            elif self.llm_provider == "groq":
+                content = await self._simulate_with_groq(system_prompt=system_prompt, user_prompt=user_prompt)
+            else:
+                return self._fallback_simulate(user_token, memory_payload, context)
+
             if isinstance(content, str):
-                # Extract JSON from response if wrapped in markdown
                 if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0]
+                    content = content.split("```json", 1)[1].split("```", 1)[0]
                 elif "```" in content:
-                    content = content.split("```")[1].split("```")[0]
+                    content = content.split("```", 1)[1].split("```", 1)[0]
                 snapshot = json.loads(content.strip())
             else:
                 snapshot = content
-            
+
             return self._normalize_snapshot(snapshot)
-            
+
         except Exception as e:
             # Fallback to heuristic if LLM fails
             print(f"LLM simulation failed: {e}, falling back to heuristic")
             return self._fallback_simulate(user_token, memory_payload, context)
+
+    async def call_llm(self, system_prompt: str, user_prompt: str, temperature: float = 0.2) -> str:
+        """General-purpose LLM call used by other agents.
+
+        IMPORTANT: Intentionally does NOT enforce token limits. Caller is responsible.
+        Returns the raw string content from the LLM.
+        """
+        if not self.llm:
+            raise RuntimeError("No LLM provider configured")
+
+        # Anthropic via langchain wrapper
+        if self.llm_provider == "anthropic":
+            response = await self.llm.ainvoke([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ])
+            return getattr(response, "content", str(response))
+
+        # Groq direct HTTP call
+        if self.llm_provider == "groq":
+            return await self._call_groq(system_prompt=system_prompt, user_prompt=user_prompt, temperature=temperature)
+
+        raise RuntimeError("Unsupported LLM provider")
+
+    async def _call_groq(self, system_prompt: str, user_prompt: str, temperature: float = 0.2) -> str:
+        if not self.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured")
+
+        payload = {
+            "model": self.groq_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": temperature,
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("Groq response has no choices")
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if not content:
+            raise RuntimeError("Groq response has empty message content")
+        return str(content)
+
+    async def _simulate_with_groq(self, system_prompt: str, user_prompt: str) -> str:
+        if not self.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured")
+
+        payload = {
+            "model": self.groq_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+        }
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("Groq response has no choices")
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if not content:
+            raise RuntimeError("Groq response has empty message content")
+        return str(content)
 
     @staticmethod
     def _normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:

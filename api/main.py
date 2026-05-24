@@ -3,20 +3,58 @@ import time
 import json
 from pathlib import Path
 from hashlib import sha256
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, Mapping
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 
 from memory.memory_manager import MemoryManager
 from api.routes.task_a import router as task_a_router
 from api.routes.task_b import router as task_b_router
 from orchestrator import LangGraphStyleOrchestrator
 from data.dataset_loader import UnifiedDatasetLoader
+from agents.recommendation_scoring import build_simulation_from_history, get_simulation
 
-app = FastAPI(title="ARCHE API (hackathon)", version="0.1.0")
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    _ensure_core_state()
+    yield
+
+
+app = FastAPI(title="ARCHE API (hackathon)", version="0.1.0", lifespan=_lifespan)
+
+# Configure CORS origins via environment variable for deployment. If not set,
+# default to allowing all origins for demo purposes. In production, set
+# `ALLOWED_ORIGINS` to a comma-separated list of allowed origins.
+allowed = os.getenv("ALLOWED_ORIGINS")
+if allowed:
+    origins = [o.strip() for o in allowed.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.include_router(task_a_router)
 app.include_router(task_b_router)
 
@@ -33,7 +71,14 @@ class IngestSignal(BaseModel):
 
 class IngestRequest(BaseModel):
     user_token: str = Field(min_length=1)
-    signal: IngestSignal
+    signal: IngestSignal | None = None
+    event_type: str | None = None
+    item_token: str | None = None
+    item_category: str | None = None
+    session_context: Dict[str, Any] = Field(default_factory=dict)
+    engagement_depth: float | None = None
+    dwell_time_seconds: int | None = None
+    sequence_position: int | None = None
 
 
 class IngestResponse(BaseModel):
@@ -44,6 +89,12 @@ class IngestResponse(BaseModel):
     acknowledged_at: int
 
 
+class SimulateRequest(BaseModel):
+    user_token: str = Field(min_length=1)
+    review_history: list[dict[str, Any]] = Field(default_factory=list)
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
 class SimulateContext(BaseModel):
     time_bucket: str | None = None
     day_type: str | None = None
@@ -52,11 +103,6 @@ class SimulateContext(BaseModel):
     region_tier: str | None = None
     session_depth: int | None = None
     entry_point: str | None = None
-
-
-class SimulateRequest(BaseModel):
-    user_token: str = Field(min_length=1)
-    context: SimulateContext = Field(default_factory=SimulateContext)
 
 
 class ContextModifiers(BaseModel):
@@ -87,12 +133,13 @@ class SimulationResponse(BaseModel):
 
 class RecommendRequest(BaseModel):
     user_token: str = Field(min_length=1)
-    context: SimulateContext = Field(default_factory=SimulateContext)
+    context: Dict[str, Any] = Field(default_factory=dict)
     n: int = 10
 
 
 class Recommendation(BaseModel):
     recommendation_id: str
+    item_id: str | None = None
     item_name: str
     item_category: str
     confidence: float
@@ -176,11 +223,15 @@ class PrivacyAbstraction:
         return any(fragment in lowered for fragment in self.sensitive_key_fragments)
 
 
-def _ensure_app_state() -> None:
+def _ensure_core_state() -> None:
     if not hasattr(app.state, "memory_manager"):
         app.state.memory_manager = MemoryManager()
     if not hasattr(app.state, "privacy"):
         app.state.privacy = PrivacyAbstraction()
+
+
+def _ensure_app_state() -> None:
+    _ensure_core_state()
     if not hasattr(app.state, "dataset_loader"):
         app.state.dataset_loader = UnifiedDatasetLoader()
     if not hasattr(app.state, "agent_graph"):
@@ -220,7 +271,7 @@ def _weight_for_recency(index: int) -> float:
     return 1.0 / (1.0 + (index * 0.35))
 
 
-def _build_simulation_response(user_token: str, context: SimulateContext, memory_payload: Dict[str, Any]) -> SimulationResponse:
+def _build_simulation_response(user_token: str, context: Dict[str, Any], memory_payload: Dict[str, Any]) -> SimulationResponse:
     rows = _extract_signal_rows(memory_payload)
     categories: list[str] = []
     events: list[str] = []
@@ -293,7 +344,19 @@ def _build_simulation_response(user_token: str, context: SimulateContext, memory
         cold_start_confidence = 0.4
         simulation_basis = "cold_start_prior"
         memory_sources = ["context_signal", "cohort_prior"]
-        preference_cluster = _normalize_value(context.entry_point, "new_user")
+        entry_point = _normalize_value(context.entry_point, "new_user")
+        if entry_point in {"amazon", "shopping", "store"}:
+            top_affinities = ["shopping", "beauty", "accessories"]
+            preference_cluster = "shopping"
+        elif entry_point in {"goodreads", "books", "reading"}:
+            top_affinities = ["books", "fiction", "literature"]
+            preference_cluster = "books"
+        elif entry_point in {"yelp", "restaurant", "food"}:
+            top_affinities = ["restaurant", "food", "local"]
+            preference_cluster = "restaurant"
+        else:
+            top_affinities = [entry_point, "exploration", "general_interest"]
+            preference_cluster = entry_point
         rejection_signals = ["no_recent_history"]
 
     return SimulationResponse(
@@ -319,9 +382,32 @@ def _build_simulation_response(user_token: str, context: SimulateContext, memory
     )
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    _ensure_app_state()
+def _simulation_dict_to_response(user_token: str, context: Dict[str, Any], simulation: Dict[str, Any]) -> SimulationResponse:
+    modifiers = simulation.get("context_modifiers") or {}
+    return SimulationResponse(
+        user_token=user_token,
+        simulated_at=datetime.now(timezone.utc),
+        behavioral_snapshot=BehavioralSnapshot(
+            current_intent=str(simulation.get("current_intent") or "exploratory_browsing"),
+            preference_cluster=str(simulation.get("preference_cluster") or "value_conscious"),
+            top_affinities=list(simulation.get("top_affinities") or ["general"]),
+            rejection_signals=list(simulation.get("rejection_signals") or []),
+            engagement_mode=str(simulation.get("engagement_mode") or "scanning"),
+            exploration_readiness=float(simulation.get("exploration_readiness") or 0.5),
+            purchase_probability=float(simulation.get("purchase_probability") or 0.3),
+        ),
+        context_modifiers=ContextModifiers(
+            time_boosts=list(modifiers.get("time_boosts") or []),
+            suppressed_categories=list(modifiers.get("suppressed_categories") or []),
+            active_context=str(
+                modifiers.get("active_context")
+                or f"{_normalize_value(context.get('time_of_day') or context.get('time_bucket'), 'evening')}_session"
+            ),
+        ),
+        cold_start_confidence=float(simulation.get("cold_start_confidence") or 0.4),
+        simulation_basis=str(simulation.get("simulation_basis") or ("cold_start_prior" if simulation.get("cold_start_used") else "historical_memory")),
+        memory_sources=list(simulation.get("memory_sources") or ([] if simulation.get("cold_start_used") else ["behavioral_history"])),
+    )
 
 
 @app.get("/v1/health")
@@ -331,7 +417,9 @@ async def health():
 
 @app.get("/v1/datasets/status")
 async def dataset_status():
-    _ensure_app_state()
+    _ensure_core_state()
+    if not hasattr(app.state, "dataset_loader"):
+        app.state.dataset_loader = UnifiedDatasetLoader()
     loader: UnifiedDatasetLoader = app.state.dataset_loader
     catalog = loader.load_catalog(limit_per_source=5)
     return {
@@ -343,12 +431,24 @@ async def dataset_status():
 
 @app.post("/v1/ingest", response_model=IngestResponse)
 async def ingest(payload: IngestRequest, request: Request):
-    _ensure_app_state()
+    _ensure_core_state()
     privacy: PrivacyAbstraction = request.app.state.privacy
     memory_manager: MemoryManager = request.app.state.memory_manager
 
     anonymized_user_token = privacy.anonymize_token(payload.user_token, "user")
-    stored_signal = privacy.sanitize_signal(payload.signal)
+    if payload.signal is not None:
+        signal = payload.signal
+    else:
+        signal = IngestSignal(
+            event_type=payload.event_type or "view",
+            item_token=payload.item_token,
+            item_category=payload.item_category,
+            session_context=payload.session_context,
+            engagement_depth=payload.engagement_depth,
+            dwell_time_seconds=payload.dwell_time_seconds,
+            sequence_position=payload.sequence_position,
+        )
+    stored_signal = privacy.sanitize_signal(signal)
     memory_manager.update(anonymized_user_token or "", stored_signal)
 
     return IngestResponse(
@@ -363,8 +463,15 @@ async def ingest(payload: IngestRequest, request: Request):
 @app.post("/v1/simulate", response_model=SimulationResponse)
 async def simulate(payload: SimulateRequest, request: Request):
     _ensure_app_state()
-    agent_graph: LangGraphStyleOrchestrator = request.app.state.agent_graph
-    return await agent_graph.run_simulation(payload.user_token, payload.context)
+    privacy: PrivacyAbstraction = request.app.state.privacy
+    anonymized_token = privacy.anonymize_token(payload.user_token, "user")
+    simulation = get_simulation(
+        user_history_inline=payload.review_history,
+        user_token=anonymized_token or payload.user_token,
+        context=payload.context,
+        memory_manager=request.app.state.memory_manager,
+    )
+    return _simulation_dict_to_response(anonymized_token or payload.user_token, payload.context, simulation)
 
 
 if __name__ == "__main__":

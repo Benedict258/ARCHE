@@ -1,0 +1,70 @@
+{
+  "package_name": "ARCHE submission package",
+  "generated_at": "2026-05-23T00:00:00Z",
+  "purpose": "Bundle the SDK and webapp deliverables alongside reproducibility artifacts.",
+  "included_assets": [
+    {
+      "path": "sdk/client.py",
+      "type": "python_sdk",
+      "description": "Async Python client for health, ingest, simulate, recommend, and explain"
+    },
+    {
+      "path": "sdk/__init__.py",
+      "type": "python_sdk",
+      "description": "SDK package export surface"
+    },
+    {
+      "path": "examples/usage_example.py",
+      "type": "usage_example",
+      "description": "End-to-end async usage example for the SDK and orchestrator"
+    },
+    {
+      "path": "frontend/",
+      "type": "webapp_source",
+      "description": "Vite + React + Tailwind frontend source"
+    },
+    {
+      "path": "frontend/dist/",
+      "type": "webapp_build",
+      "description": "Production webapp build output"
+    },
+    {
+      "path": "submission_package/README.md",
+      "type": "package_readme",
+      "description": "Human-readable bundle guide"
+    },
+    {
+      "path": "submission_package/arche_solution_paper.md",
+      "type": "solution_paper",
+      "description": "Final solution paper with evaluation metrics"
+    },
+    {
+      "path": "submission_package/evaluation_metrics.json",
+      "type": "benchmark_results",
+      "description": "Metrics used in the final paper"
+    },
+    {
+      "path": "submission_package/validation_summary.md",
+      "type": "validation_report",
+      "description": "Latest integration and API validation summary"
+    }
+  ],
+  "rebuild_commands": {
+    "backend": [
+      "python -m pip install -r requirements.txt",
+      "uvicorn api.main:app --reload --host 127.0.0.1 --port 8000"
+    ],
+    "sdk_example": [
+      "python examples/usage_example.py"
+    ],
+    "frontend": [
+      "cd frontend",
+      "npm install",
+      "npm run build",
+      "npm run dev"
+    ],
+    "tests": [
+      "python -m pytest tests/test_integration.py tests/test_cold_start.py -q"
+    ]
+  }
+}

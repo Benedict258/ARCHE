@@ -1,4 +1,5 @@
 # ARCHE — HackAlign Document
+
 ## DSN x BCT LLM Agent Challenge 3.0 — Full Alignment & Build Reference
 
 ---
@@ -9,16 +10,16 @@
 
 ## Document Metadata
 
-| Field | Detail |
-|---|---|
-| Document | HackAlign v1.0 |
-| Hackathon | DSN x BCT LLM Agent Challenge 3.0 |
-| Submission Deadline | May 24, 2026 — midnight, no extensions |
-| Grand Finale | June 10, 2026 — Eko Hotel, Lagos |
-| Team Eligibility | ✅ Confirmed — all members are enrolled students |
-| Tasks | Both Task A (User Modeling) AND Task B (Recommendation) — both required |
-| Dataset | Yelp Open Dataset (primary) |
-| Deliverables | 3 required: Containerized App + Solution Paper + GitHub Repo |
+| Field               | Detail                                                                  |
+| ------------------- | ----------------------------------------------------------------------- |
+| Document            | HackAlign v1.0                                                          |
+| Hackathon           | DSN x BCT LLM Agent Challenge 3.0                                       |
+| Submission Deadline | May 24, 2026 — midnight, no extensions                                  |
+| Grand Finale        | June 10, 2026 — Eko Hotel, Lagos                                        |
+| Team Eligibility    | ✅ Confirmed — all members are enrolled students                        |
+| Tasks               | Both Task A (User Modeling) AND Task B (Recommendation) — both required |
+| Dataset             | Yelp Open Dataset (primary)                                             |
+| Deliverables        | 3 required: Containerized App + Solution Paper + GitHub Repo            |
 
 ---
 
@@ -33,11 +34,13 @@ The competition has two tasks. Both are required. A team submitting only one is 
 > Build an agent that understands users deeply enough to simulate their reviews — capturing tone, rating behaviour, and contextual nuance.
 
 In plain English:
+
 - Input: A user's history + an item they have never reviewed
 - Output: A predicted star rating (1–5) + a written review in that user's voice
 - Evaluated on: Review text quality (ROUGE/BERTScore), Rating accuracy (RMSE), Behavioural fidelity (human eval)
 
 **Concrete Example:**
+
 ```
 Input:
   User: Emeka
@@ -57,11 +60,13 @@ Output:
 > Build an agent that delivers personalised recommendations — going beyond collaborative filtering to contextual, conversational retrieval.
 
 In plain English:
+
 - Input: A user's behavioral history / persona
 - Output: Top-10 ranked personalized recommendations with reasoning
 - Evaluated on: NDCG@10/Hit Rate (30pts), Cold-Start (25pts), Contextual Relevance (20pts), Solution Paper (15pts), Code Reproducibility (10pts)
 
 **Concrete Example:**
+
 ```
 Input:
   User: Emeka (3 past reviews, evening session, Lagos Mainland)
@@ -96,23 +101,23 @@ The same behavioral simulation that grounds review generation also grounds recom
 
 **Task A — User Modeling (qualitative evaluation)**
 
-| Criterion | What Judges Measure |
-|---|---|
+| Criterion                             | What Judges Measure                                               |
+| ------------------------------------- | ----------------------------------------------------------------- |
 | Review Text Quality (ROUGE/BERTScore) | Does generated text match actual review vocabulary and structure? |
-| Rating Accuracy (RMSE) | How close is predicted star rating to actual rating? |
-| Behavioural Fidelity (human eval) | Does it sound like this specific user? |
-| Solution Paper | Clarity of approach, originality, experimental rigor |
-| Code Reproducibility | Can judges run it? Is it clean and documented? |
+| Rating Accuracy (RMSE)                | How close is predicted star rating to actual rating?              |
+| Behavioural Fidelity (human eval)     | Does it sound like this specific user?                            |
+| Solution Paper                        | Clarity of approach, originality, experimental rigor              |
+| Code Reproducibility                  | Can judges run it? Is it clean and documented?                    |
 
 **Task B — Recommendation (100-point rubric)**
 
-| Criterion | Points | What Judges Measure |
-|---|---|---|
-| Ranking Quality (NDCG@10 / Hit Rate) | 30 | Are the right items ranked correctly? |
-| Cold-Start & Cross-Domain | 25 | Does it work with sparse/new user history? |
-| Contextual Relevance (human eval) | 20 | Do recommendations feel situationally appropriate? |
-| Solution Paper | 15 | Architecture understanding, experiments, ablation |
-| Code Reproducibility | 10 | Clean repo, README, runnable Docker container |
+| Criterion                            | Points | What Judges Measure                                |
+| ------------------------------------ | ------ | -------------------------------------------------- |
+| Ranking Quality (NDCG@10 / Hit Rate) | 30     | Are the right items ranked correctly?              |
+| Cold-Start & Cross-Domain            | 25     | Does it work with sparse/new user history?         |
+| Contextual Relevance (human eval)    | 20     | Do recommendations feel situationally appropriate? |
+| Solution Paper                       | 15     | Architecture understanding, experiments, ablation  |
+| Code Reproducibility                 | 10     | Clean repo, README, runnable Docker container      |
 
 **Nigerian Bonus:** Additional marks for agents that behave and sound like Nigerians. Explicitly stated in brief. Most teams will miss this.
 
@@ -121,12 +126,22 @@ The same behavioral simulation that grounds review generation also grounds recom
 ### 1.4 Three Required Deliverables
 
 **Deliverable 1 — Containerized Application (Agent Link)**
+
 - Docker containerized FastAPI application
 - Task A endpoint: `POST /simulate-review` — takes user persona + item → returns rating + review
 - Task B endpoint: `POST /recommend` — takes user persona → returns ranked recommendations
 - Must run with `docker-compose up` — judges will attempt to run it
 
+**Implementation mapping in ARCHE**
+
+- Task A is served by `POST /v1/simulate-review`
+- Task B is served by `POST /v1/recommend`
+- Explanation traces are served by `POST /v1/explain`
+- The frontend demo uses the same backend API, so judges can see the recommendation flow visually while still having direct API access for both tasks
+- Task A can be exercised directly through the API endpoint or by wiring a form in the webapp; the backend contract is already aligned either way
+
 **Deliverable 2 — Solution Paper (4–8 pages)**
+
 - Approach, architecture decisions, experiments, ablation studies
 - What could be done with more time
 - Judges read this FIRST — it is the primary talent signal
@@ -134,6 +149,7 @@ The same behavioral simulation that grounds review generation also grounds recom
 - Write Days 15–17 using actual evaluation numbers from the working system
 
 **Deliverable 3 — GitHub Repository**
+
 - Clean, documented, reproducible codebase
 - Clear README with setup instructions
 - Well-commented agentic workflow logic
@@ -145,18 +161,27 @@ The same behavioral simulation that grounds review generation also grounds recom
 ## PART 2 — Gap Analysis & Resolutions
 
 ### GAP 1 — Eligibility ✅ RESOLVED
+
 **Issue:** Competition is student-only (Undergraduate, Postgraduate, PhD)
 **Resolution:** All team members confirmed as enrolled students. No action required.
 
 ---
 
 ### GAP 2 — Two Tasks Required ✅ RESOLVED
+
 **Issue:** Our original plan focused primarily on recommendation (Task B). Brief requires BOTH tasks.
 
 **Resolution:**
 Added `ReviewGenerationAgent` as a new core component. It sits downstream of the Simulation Engine and generates star ratings + written reviews for Task A. The simulation engine powers both tasks — architectural change is additive, not structural.
 
+**Endpoint alignment:**
+
+- `POST /v1/simulate-review` accepts user persona + item details and returns the review/rating output expected by Task A
+- `POST /v1/recommend` accepts user persona + context and returns ranked recommendations expected by Task B
+- `POST /v1/explain` provides the reasoning trace judges expect to see in an agentic system
+
 **New component added to ARCHE:**
+
 ```
 ReviewGenerationAgent
   Input:  SimulationOutput + unseen item details
@@ -169,11 +194,13 @@ ReviewGenerationAgent
 ---
 
 ### GAP 3 — Real Datasets Required ✅ RESOLVED
+
 **Issue:** We planned mock data. Brief specifies Yelp, Amazon Reviews, or Goodreads.
 
 **Resolution:** Use Yelp Open Dataset as primary. See Part 3 for full data pipeline.
 
 **Why Yelp:**
+
 - Food/restaurant domain — closest to Nigerian daily life context
 - Rich review text — ideal for Task A review simulation
 - Strong behavioral signals — repeat visits, ratings, categories
@@ -183,6 +210,7 @@ ReviewGenerationAgent
 ---
 
 ### GAP 4 — Docker Containerization Required ✅ RESOLVED
+
 **Issue:** Submission must be containerized. Docker was dev tooling in our original plan.
 
 **Resolution:** Docker is now a Day 1 priority. Entire application must run with `docker-compose up`. See Part 4 for updated architecture.
@@ -190,6 +218,7 @@ ReviewGenerationAgent
 ---
 
 ### GAP 5 — Solution Paper Required ✅ RESOLVED
+
 **Issue:** 4–8 page academic-style solution paper not in original plan.
 
 **Resolution:** Solution paper is now a formal deliverable. Written Days 15–17 using real evaluation numbers. Structure defined in Part 5.
@@ -197,9 +226,20 @@ ReviewGenerationAgent
 ---
 
 ### GAP 6 — Nigerian Contextualization ✅ RESOLVED
+
 **Issue:** Bonus marks for Nigerian-calibrated behavior not explicitly planned.
 
 **Resolution:** Approach C adopted — dataset extraction + prompt calibration + few-shot examples. See Part 3 for full Nigerian context strategy.
+
+### GAP 7 — Webapp + API Submission Shape ✅ RESOLVED
+
+**Issue:** The brief allows either a web application or an API endpoint for each task, so the submission must clearly explain how judges use both.
+
+**Resolution:**
+
+- The backend API is the canonical judge-facing contract for both tasks
+- The webapp provides the interactive demo for recommendations and explanation traces
+- The README and submission package now explain that Task A is available through the API endpoint, while Task B is visible in both API and webapp flows
 
 ---
 
@@ -246,6 +286,7 @@ Result: Reviews that sound like specific Nigerian users,
 ### 3.3 Nigerian Context — What We Model
 
 **Geographic Tiers:**
+
 - Lagos (Island: Lekki, VI, Ikoyi) — premium, quality-focused, global exposure
 - Lagos (Mainland: Surulere, Yaba, Ikeja) — value-conscious, practical, tech-aware
 - Abuja — government/professional, mid-to-premium, formal register
@@ -253,6 +294,7 @@ Result: Reviews that sound like specific Nigerian users,
 - Pan-Nigerian default — universal Nigerian behavioral signals
 
 **Behavioral Signals We Extract From Data:**
+
 - Rating distributions by category (Nigerians tend to polarize — very high or very low)
 - Review length patterns (Nigerian reviews tend to be shorter and more direct)
 - Complaint patterns (service speed, portions, value-for-money dominate)
@@ -261,6 +303,7 @@ Result: Reviews that sound like specific Nigerian users,
 - Time patterns (evening surge post-traffic, owambe weekend patterns)
 
 **Language Register Detection:**
+
 ```python
 NIGERIAN_REGISTERS = {
     "formal_english": "The service was excellent and the food was well-prepared.",
@@ -294,6 +337,7 @@ These clusters transcend nationality. A Nigerian value-conscious user and a Sout
 ### 3.5 Nigerian Prompt Calibration — Implementation
 
 **System prompt addition for ReviewGenerationAgent:**
+
 ```python
 NIGERIAN_REVIEW_CALIBRATION = """
 NIGERIAN USER CONTEXT:
@@ -320,6 +364,7 @@ The Nigerian context is background calibration, not foreground performance.
 ```
 
 **System prompt addition for RecommendationAgent:**
+
 ```python
 NIGERIAN_RECOMMENDATION_CALIBRATION = """
 NIGERIAN BEHAVIORAL CONTEXT:
@@ -806,7 +851,7 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ```yaml
 # docker-compose.yml — SUBMISSION READY
-version: '3.8'
+version: "3.8"
 
 services:
   arche-api:
@@ -950,25 +995,25 @@ Abstract (0.5 pages)
 
 ### Revised Day-by-Day Schedule
 
-| Day | Focus | Owner | Key Output |
-|---|---|---|---|
-| 1 | Repo setup + Docker + Yelp download | All | docker-compose up works. Yelp data downloaded. |
-| 2 | Yelp data pipeline + train/test split | Backend + AI | Clean user profiles ready for training |
-| 3 | Nigerian cohort extraction + few-shot mining | AI Engineer | Nigerian behavioral clusters built |
-| 4 | Memory Layer (ChromaDB + PostgreSQL + Redis) | AI + Backend | All memory layers reading/writing |
-| 5 | User Simulation Engine — core build | AI Engineer | SimulationAgent returns coherent snapshot |
-| 6 | Cold Start system + population priors | AI Engineer | New user gets meaningful simulation |
-| 7 | ReviewGenerationAgent — Task A | AI Engineer | Star rating + review text generated |
-| 8 | Task A evaluation (RMSE + ROUGE) | AI Engineer | Evaluation numbers in hand |
-| 9 | RecommendationAgent — Task B | AI Engineer | 10 ranked recommendations returned |
-| 10 | LangGraph Orchestrator + all agents wired | AI + Backend | Full pipeline executes end-to-end |
-| 11 | Task B evaluation (NDCG@10 + Hit Rate) | AI Engineer | Evaluation numbers in hand |
-| 12 | FastAPI endpoints + Docker polish | Backend | Both task endpoints working in container |
-| 13 | Dashboard — TaskADemo + TaskBDemo + EvalView | Fullstack | All views live and connected |
-| 14 | Nigerian calibration tuning + demo prep | All | Nigerian demos compelling and accurate |
-| 15 | Solution paper draft + ablation study | All | Paper draft complete with real numbers |
-| 16 | Polish, bug fixes, submission package | All | Submitted before midnight May 24 |
-| 17 | June 10 prep — dry run + Q&A practice | All | Ready for Grand Finale |
+| Day | Focus                                        | Owner        | Key Output                                     |
+| --- | -------------------------------------------- | ------------ | ---------------------------------------------- |
+| 1   | Repo setup + Docker + Yelp download          | All          | docker-compose up works. Yelp data downloaded. |
+| 2   | Yelp data pipeline + train/test split        | Backend + AI | Clean user profiles ready for training         |
+| 3   | Nigerian cohort extraction + few-shot mining | AI Engineer  | Nigerian behavioral clusters built             |
+| 4   | Memory Layer (ChromaDB + PostgreSQL + Redis) | AI + Backend | All memory layers reading/writing              |
+| 5   | User Simulation Engine — core build          | AI Engineer  | SimulationAgent returns coherent snapshot      |
+| 6   | Cold Start system + population priors        | AI Engineer  | New user gets meaningful simulation            |
+| 7   | ReviewGenerationAgent — Task A               | AI Engineer  | Star rating + review text generated            |
+| 8   | Task A evaluation (RMSE + ROUGE)             | AI Engineer  | Evaluation numbers in hand                     |
+| 9   | RecommendationAgent — Task B                 | AI Engineer  | 10 ranked recommendations returned             |
+| 10  | LangGraph Orchestrator + all agents wired    | AI + Backend | Full pipeline executes end-to-end              |
+| 11  | Task B evaluation (NDCG@10 + Hit Rate)       | AI Engineer  | Evaluation numbers in hand                     |
+| 12  | FastAPI endpoints + Docker polish            | Backend      | Both task endpoints working in container       |
+| 13  | Dashboard — TaskADemo + TaskBDemo + EvalView | Fullstack    | All views live and connected                   |
+| 14  | Nigerian calibration tuning + demo prep      | All          | Nigerian demos compelling and accurate         |
+| 15  | Solution paper draft + ablation study        | All          | Paper draft complete with real numbers         |
+| 16  | Polish, bug fixes, submission package        | All          | Submitted before midnight May 24               |
+| 17  | June 10 prep — dry run + Q&A practice        | All          | Ready for Grand Finale                         |
 
 ---
 
@@ -979,6 +1024,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🔧 SETUP (Day 1)
+
 - [ ] GitHub repository created with agreed branching strategy
 - [ ] `.env.example` created with all required environment variables documented
 - [ ] `docker-compose.yml` written — all services defined
@@ -993,6 +1039,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 📦 DATA PIPELINE (Days 1–3)
+
 - [ ] `yelp_pipeline.py` — loads and cleans Yelp data
 - [ ] User profiles built — each user has structured history
 - [ ] Train/test split complete — 80% history / 20% held out
@@ -1007,6 +1054,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🧠 MEMORY LAYER (Day 4)
+
 - [ ] ChromaDB collection created — `behavioral_embeddings`
 - [ ] PostgreSQL tables created: `users`, `signals`, `sessions`, `cohorts`, `reviews`
 - [ ] Redis session cache working — get/set/delete
@@ -1018,6 +1066,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🎭 USER SIMULATION ENGINE (Days 5–6)
+
 - [ ] `SimulationAgent` class complete
 - [ ] System prompt for simulation written and tested
 - [ ] `_build_simulation_prompt()` — memory + context → coherent LLM prompt
@@ -1031,6 +1080,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### ✍️ TASK A — REVIEW GENERATION (Day 7–8)
+
 - [ ] `ReviewGenerationAgent` class complete
 - [ ] `_build_review_prompt()` — simulation + item + fewshot → LLM prompt
 - [ ] Review output parser — LLM JSON → `ReviewOutput` schema
@@ -1045,6 +1095,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🎯 TASK B — RECOMMENDATION (Days 9–11)
+
 - [ ] `RecommendationAgent` class complete
 - [ ] 60/25/15 exploration split implemented
 - [ ] Diversity penalty algorithm working
@@ -1061,6 +1112,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🤖 ORCHESTRATOR + INTEGRATION (Day 10)
+
 - [ ] `ARCHEState` TypedDict defined
 - [ ] LangGraph graph built — all agent nodes added
 - [ ] Task A pipeline: retrieve → context → simulate → generate_review → security
@@ -1072,6 +1124,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🐳 DOCKER + API (Day 12)
+
 - [ ] `Dockerfile` builds without errors
 - [ ] `docker-compose up` starts all services cleanly
 - [ ] Both task endpoints working inside Docker container
@@ -1084,6 +1137,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🖥️ DASHBOARD (Day 13)
+
 - [ ] React + Next.js + Tailwind project setup
 - [ ] `TaskADemo` — user history input + item input → shows generated review + rating
 - [ ] `TaskBDemo` — user persona input → shows 10 recommendations with reasoning
@@ -1096,6 +1150,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🇳🇬 NIGERIAN CONTEXT (Day 14)
+
 - [ ] Register detector tested on 10 Nigerian user profiles — correct classification
 - [ ] Generated reviews from Nigerian users include appropriate language markers
 - [ ] Recommendation output for Nigerian users shows culturally relevant signals
@@ -1106,6 +1161,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 📄 SOLUTION PAPER (Days 15–16)
+
 - [ ] Abstract written — includes actual RMSE and NDCG@10 numbers
 - [ ] Introduction written — problem clearly stated
 - [ ] Architecture section complete — all diagrams included
@@ -1120,6 +1176,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 📁 GITHUB REPOSITORY (Day 16)
+
 - [ ] Repository is public (or accessible to judges)
 - [ ] README includes: what ARCHE does, how to run it, architecture overview
 - [ ] `docker-compose up` instructions in README — one command setup
@@ -1134,6 +1191,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🚀 SUBMISSION (Day 16 — Before Midnight)
+
 - [ ] Containerized app submitted — Docker link or deployed URL
 - [ ] Solution paper submitted — PDF, 4–8 pages
 - [ ] GitHub repository submitted — clean, public, runnable
@@ -1144,6 +1202,7 @@ Use this every day. Check off as you complete each item.
 ---
 
 ### 🎤 JUNE 10 PREPARATION (Day 17)
+
 - [ ] Full demo dry run — both Task A and Task B shown, timed at 7 minutes
 - [ ] 10 anticipated judge questions written out with answers
 - [ ] Architecture diagram printed and ready
@@ -1156,21 +1215,21 @@ Use this every day. Check off as you complete each item.
 
 ## PART 8 — Competitive Edge Summary
 
-| Scoring Criterion | Other Teams | ARCHE |
-|---|---|---|
-| Review Text Quality (ROUGE/BERTScore) | History replay → generic output | Simulation-grounded voice capture → user-specific output |
-| Rating Accuracy (RMSE) | Average past ratings | Behavioral snapshot → contextual prediction |
-| Behavioural Fidelity (human eval) | Sounds like "a user" | Sounds like THIS user — register, tone, vocabulary |
-| NDCG@10 / Hit Rate (30pts) | Pure relevance scoring | Exploration-aware diversity ranking |
-| Cold-Start (25pts) | Fails or returns popular items | Population cohort memory → inference from priors |
-| Contextual Relevance (20pts) | Context ignored | Time/device/region as primary inputs |
-| Solution Paper (15pts) | "We used GPT to generate reviews" | Novel simulation architecture — genuine intellectual contribution |
-| Code Reproducibility (10pts) | Jupyter notebook | Modular, documented, Dockerized, clean README |
-| Nigerian Bonus | One slang word added | Culturally calibrated behavioral simulation grounded in real data |
+| Scoring Criterion                     | Other Teams                       | ARCHE                                                             |
+| ------------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
+| Review Text Quality (ROUGE/BERTScore) | History replay → generic output   | Simulation-grounded voice capture → user-specific output          |
+| Rating Accuracy (RMSE)                | Average past ratings              | Behavioral snapshot → contextual prediction                       |
+| Behavioural Fidelity (human eval)     | Sounds like "a user"              | Sounds like THIS user — register, tone, vocabulary                |
+| NDCG@10 / Hit Rate (30pts)            | Pure relevance scoring            | Exploration-aware diversity ranking                               |
+| Cold-Start (25pts)                    | Fails or returns popular items    | Population cohort memory → inference from priors                  |
+| Contextual Relevance (20pts)          | Context ignored                   | Time/device/region as primary inputs                              |
+| Solution Paper (15pts)                | "We used GPT to generate reviews" | Novel simulation architecture — genuine intellectual contribution |
+| Code Reproducibility (10pts)          | Jupyter notebook                  | Modular, documented, Dockerized, clean README                     |
+| Nigerian Bonus                        | One slang word added              | Culturally calibrated behavioral simulation grounded in real data |
 
 **ARCHE does not win on one criterion. It wins on every row simultaneously.**
 
 ---
 
-*HackAlign v1.0 — ARCHE — DSN x BCT LLM Agent Challenge 3.0 — Confidential*
-*Read this document before writing a single line of code.*
+_HackAlign v1.0 — ARCHE — DSN x BCT LLM Agent Challenge 3.0 — Confidential_
+_Read this document before writing a single line of code._

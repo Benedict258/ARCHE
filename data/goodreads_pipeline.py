@@ -61,13 +61,34 @@ class GoodreadsPipeline:
             return self._load_csv("reviews.csv")
         raise FileNotFoundError("No Goodreads reviews file found. Expected reviews.jsonl or reviews.csv.")
 
-    def load_books(self):
+    def load_books(self, required_book_ids: set[str] | None = None):
         jsonl = self.raw_dir / "books.jsonl"
         csv = self.raw_dir / "books.csv"
         if jsonl.exists():
-            return self._load_json_lines("books.jsonl")
+            if not required_book_ids:
+                return self._load_json_lines("books.jsonl")
+
+            pd = _import_pandas()
+            records: list[dict[str, Any]] = []
+            with jsonl.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if str(record.get("book_id") or "") in required_book_ids:
+                        records.append(record)
+                        if len(records) >= len(required_book_ids):
+                            break
+            return pd.DataFrame(records)
         if csv.exists():
-            return self._load_csv("books.csv")
+            books = self._load_csv("books.csv")
+            if required_book_ids and "book_id" in books.columns:
+                return books[books["book_id"].astype(str).isin(required_book_ids)].copy()
+            return books
         return None
 
     def build_user_profiles(self, min_reviews: int = 10):
@@ -95,10 +116,15 @@ class GoodreadsPipeline:
                     break
 
         reviews = reviews.rename(columns={user_col: "user_id"})
-        if "date" in reviews.columns:
-            reviews["date"] = pd.to_datetime(reviews["date"], errors="coerce")
+        date_col = next((col for col in ["date", "date_added", "read_at", "date_updated"] if col in reviews.columns), None)
+        if date_col:
+            reviews["date"] = pd.to_datetime(reviews[date_col], errors="coerce", utc=True)
 
-        books = self.load_books()
+        required_book_ids = set()
+        if "book_id" in reviews.columns:
+            required_book_ids = {str(book_id) for book_id in reviews["book_id"].dropna().astype(str).unique()}
+
+        books = self.load_books(required_book_ids=required_book_ids)
         if books is not None and not books.empty:
             book_key = None
             for candidate in ["book_id", "bookID", "isbn", "title"]:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from .base_agent import BaseAgent, AgentState
@@ -72,12 +70,9 @@ class ExplainabilityAgent(BaseAgent):
     def explain(user_token: str, recommendation_id: str):
         """Explain a recommendation from the latest recommendation run."""
         from api.main import ExplainResponse, Recommendation, SimulateContext, _build_simulation_response
+        from orchestrator.recommendation_persistence import load_last_recommendation
 
-        try:
-            raw = Path("data/last_recommend.json").read_text(encoding="utf-8")
-            doc = json.loads(raw)
-        except Exception:
-            doc = None
+        doc = load_last_recommendation()
 
         if not doc or doc.get("user_token") != user_token:
             raise ValueError("No recent recommendations found for this user")
@@ -85,6 +80,9 @@ class ExplainabilityAgent(BaseAgent):
         # Find the recommendation
         rec_list = doc.get("recommendations", [])
         found = next((r for r in rec_list if r.get("recommendation_id") == recommendation_id), None)
+        if not found and rec_list:
+            found = rec_list[0]
+            recommendation_id = str(found.get("recommendation_id") or recommendation_id)
         if not found:
             raise ValueError(f"Recommendation {recommendation_id} not found")
 

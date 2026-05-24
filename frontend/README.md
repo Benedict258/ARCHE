@@ -1,3 +1,17 @@
+# ARCHE Frontend (minimal)
+
+This is a minimal Vite + React frontend used as a simple demo UI for the ARCHE API. It is intentionally light-weight and styled for a clean, responsive light-mode experience.
+
+Quick start:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app expects the backend to be running on the same origin (or adjust proxy in Vite config).
+
 # ARCHE Frontend (Vite + React + Tailwind)
 
 This frontend is scaffolded for the UI flow component defined in `BuildDocs/UI.md`.
@@ -8,6 +22,7 @@ This frontend is scaffolded for the UI flow component defined in `BuildDocs/UI.m
 cd frontend
 npm install
 npm run dev
+
 ```
 
 ## Build

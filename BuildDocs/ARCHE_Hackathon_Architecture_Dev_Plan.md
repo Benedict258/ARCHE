@@ -28,6 +28,10 @@ This section is the source of truth for what is implemented in this repository r
 - SDK: async Python client in `sdk/client.py`
 - Orchestrator: lightweight sequential pipeline in `orchestrator/pipeline.py`
 - Frontend demo: React + Vite + Tailwind in `frontend/` with recommend/explain integration
+- Task A endpoint: `POST /v1/simulate-review` in `api/routes/task_a.py`
+- Task B route module: `api/routes/task_b.py` for `POST /v1/recommend` and `POST /v1/explain`
+- Recommendation persistence helper: `orchestrator/recommendation_persistence.py` with atomic JSON write plus in-memory fallback
+- Fresh Task B runner: `python -m data.run_full_recommend_evaluate` writes `data/evaluation/fresh_task_b_*.json`
 
 ### Deferred to Roadmap (Post-Hackathon)
 
@@ -36,6 +40,7 @@ This section is the source of truth for what is implemented in this repository r
 - PostgreSQL + Redis production memory architecture
 - Route modularization + auth/rate-limit middleware split
 - Next.js enterprise dashboard and expanded analytics views
+- Goodreads processed split regeneration for full Amazon + Goodreads fresh evaluation
 
 ### Architecture Note
 

@@ -1,5 +1,8 @@
 import json
 import math
+import time
+import os
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -14,6 +17,9 @@ class LocalVectorStore:
     def __init__(self, path: str = "data/local_vectors.json"):
         self.path = Path(path)
         self._data: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+        self._dirty_count = 0
+        self._persist_every = max(1, int(os.getenv("ARCHE_VECTOR_PERSIST_EVERY", "500")))
         if self.path.exists():
             try:
                 self._data = json.loads(self.path.read_text(encoding="utf-8"))
@@ -21,8 +27,17 @@ class LocalVectorStore:
                 self._data = {}
 
     def add(self, key: str, vector: List[float], metadata: Dict[str, Any] | None = None):
-        self._data[key] = {"vector": vector, "metadata": metadata or {}}
-        self._persist()
+        with self._lock:
+            self._data[key] = {"vector": vector, "metadata": metadata or {}}
+            self._dirty_count += 1
+            if self._dirty_count >= self._persist_every:
+                self._persist()
+                self._dirty_count = 0
+
+    def persist(self) -> None:
+        with self._lock:
+            self._persist()
+            self._dirty_count = 0
 
     def query(self, vector: List[float], top_k: int = 10) -> List[Tuple[str, Dict[str, Any]]]:
         if not self._data:
@@ -52,4 +67,16 @@ class LocalVectorStore:
 
     def _persist(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self._data, ensure_ascii=False), encoding="utf-8")
+        content = json.dumps(self._data, ensure_ascii=False)
+        tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+
+        # On Windows under burst writes, plain write_text can intermittently fail.
+        for attempt in range(3):
+            try:
+                tmp_path.write_text(content, encoding="utf-8")
+                tmp_path.replace(self.path)
+                return
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.02 * (attempt + 1))

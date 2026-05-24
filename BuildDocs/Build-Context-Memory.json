@@ -11,6 +11,127 @@
     "repo_url": "https://github.com/AgentBase-io/BuildContextMemory",
     "created_at": "2026-05-08T00:00:00Z"
   },
+    "hackalign_reference": {
+      "hackathon_metadata": {
+        "name": "DSN x BCT LLM Agent Challenge 3.0",
+        "submission_deadline": "May 24, 2026 — midnight, no extensions",
+        "grand_finale": "June 10, 2026 — Eko Hotel, Lagos",
+        "prize_1st_place": "₦1,500,000",
+        "team_eligibility": "All members must be enrolled students (Undergraduate, Postgraduate, PhD)",
+        "dataset_primary": "Yelp Open Dataset",
+        "deliverables_required": 3
+      },
+      "tasks_required": {
+        "task_a_user_modeling": {
+          "description": "Build an agent that simulates user reviews — capturing tone, rating behavior, and contextual nuance",
+          "input": "User history + unseen item",
+          "output": "Predicted star rating (1-5) + written review in user's voice",
+          "evaluation_criteria": [
+            "Review text quality (ROUGE/BERTScore)",
+            "Rating accuracy (RMSE)",
+            "Behavioral fidelity (human evaluation)",
+            "Solution paper clarity and originality",
+            "Code reproducibility"
+          ]
+        },
+        "task_b_recommendation": {
+          "description": "Build an agent that delivers personalized recommendations beyond collaborative filtering to contextual, conversational retrieval",
+          "input": "User behavioral history / persona",
+          "output": "Top-10 ranked personalized recommendations with reasoning",
+          "evaluation_scoring": {
+            "ranking_quality_ndcg_hit_rate": 30,
+            "cold_start_cross_domain": 25,
+            "contextual_relevance_human_eval": 20,
+            "solution_paper": 15,
+            "code_reproducibility": 10,
+            "total": 100
+          },
+          "nigerian_bonus": "Additional marks for agents that behave and sound like Nigerians"
+        }
+      },
+      "deliverables_required": {
+        "deliverable_1_containerized_app": {
+          "description": "Docker containerized FastAPI application",
+          "endpoint_task_a": "POST /v1/simulate-review — takes user persona + item → returns rating + review",
+          "endpoint_task_b": "POST /v1/recommend — takes user persona → returns ranked recommendations",
+          "requirement": "Must run with docker-compose up"
+        },
+        "deliverable_2_solution_paper": {
+          "description": "4-8 page academic-style solution paper",
+          "contents": [
+            "Approach and architecture decisions",
+            "Experiments and ablation studies",
+            "Nigerian/global context strategy",
+            "What could be done with more time",
+            "Actual evaluation numbers from working system"
+          ],
+          "importance": "Judges read this FIRST — it is the primary talent signal. Originality and clarity rewarded above raw performance."
+        },
+        "deliverable_3_github_repo": {
+          "description": "Clean, documented, reproducible codebase",
+          "requirements": [
+            "Clear README with setup instructions",
+            "Well-commented agentic workflow logic",
+            "Modular design (judges reward this explicitly)",
+            "Bonus credit for exceptional README and modular design"
+          ]
+        }
+      },
+      "arche_architectural_principles": {
+        "single_brain_two_outputs": {
+          "concept": "Shared User Simulation Engine powers both Task A and Task B",
+          "advantage": "Other teams build two separate systems. We build one unified agentic brain.",
+          "flow": "Simulation Engine → Task A (review generation) + Task B (recommendation ranking)"
+        },
+        "agentic_loop_pattern": {
+          "sequence": "THINK → RETRIEVE → SIMULATE → ACT → EXPLAIN",
+          "description": "Explicit agentic stages that align orchestrator with hackathon scoring expectations for explainability and flow reasoning",
+          "implementation": "orchestrator/pipeline.py structures ArchePipeline methods around distinct loop stages"
+        },
+        "nigerian_context_strategy": {
+          "approach": "Dataset-Driven Behavioral Learning + Prompt Calibration + Few-Shot Examples",
+          "layer_1": "Real Nigerian behavioral data extracted from Yelp dataset → builds accurate Nigerian behavioral cohort priors",
+          "layer_2": "Nigerian few-shot review examples extracted from real data → injected into LLM prompts as concrete style anchors",
+          "layer_3": "Nigerian cultural context calibration in system prompts → time patterns, price sensitivity, language register",
+          "principle": "Behavioral signals are universal. Cultural calibration is a layer on top."
+        },
+        "behavioral_components": {
+          "review_generation_agent": "Generates rating prediction + review text grounded in behavioral snapshot",
+          "recommendation_agent": "Ranks candidates using LLM-based scoring with deterministic re-ranking fallback",
+          "simulation_engine": "Central LLM helper with no token limits — caller responsible for management"
+        }
+      },
+      "gap_resolutions": {
+        "eligibility": "✅ All team members confirmed as enrolled students",
+        "two_tasks_required": "✅ ReviewGenerationAgent added for Task A; single architecture powers both",
+        "real_datasets": "✅ Yelp Open Dataset (food domain, rich review text, Nigerian relevance)",
+        "docker_containerization": "✅ Entire app runs with docker-compose up",
+        "solution_paper": "✅ Formal deliverable written Days 15-17 with real evaluation numbers",
+        "nigerian_contextualization": "✅ Behavioral signal extraction + prompt calibration + few-shot examples"
+      },
+      "hackalign_documentation_files": {
+        "arche_hackalign_md": {
+          "file": "BuildDocs/HackAlign/ARCHE_HackAlign.md",
+          "purpose": "Single source of truth for ARCHE alignment with hackathon brief, gap resolutions, Nigerian context strategy",
+          "contents": "Official brief alignment, gap analysis, Nigerian/global context modeling, prompt calibration examples, submission checklist"
+        },
+        "arche_copilot_alignment_prompt_md": {
+          "file": "BuildDocs/HackAlign/ARCHE_Copilot_Alignment_Prompt.md",
+          "purpose": "Day-by-day copilot instructions — what exists, what must not change, what to build next, priority order",
+          "contents": "Locked components, current build status, next steps, priority checklist, submission requirements"
+        },
+        "arche_dataset_pipeline_prompt_md": {
+          "file": "BuildDocs/HackAlign/ARCHE_Dataset_Pipeline_Prompt.md",
+          "purpose": "Data pipeline setup and Yelp dataset ingestion strategy",
+          "contents": "Yelp dataset download, preprocessing, Nigerian user extraction, few-shot example collection"
+        },
+        "arche_build_clarity_prompt_md": {
+          "file": "BuildDocs/HackAlign/ARCHE_Build_Clarity_Prompt.md",
+          "purpose": "Clarity and architectural refinement notes for ongoing development",
+          "contents": "Build milestones, clarity on requirements, architectural decisions, debugging guidance"
+        }
+      }
+    },
   "sessions": [
     {
       "session_id": "session_001",
@@ -1581,6 +1702,624 @@
         "Optional: run full test matrix via test_runner.py all before final branch packaging"
       ],
       "session_verdict": "✅ COMPLETE - Agentic API wiring stabilized and validated"
+    },
+    {
+      "session_id": "session_023",
+      "timestamp": "2026-05-22T00:00:00Z",
+      "ai_agent": "GitHub Copilot (GPT-5.4 mini)",
+      "current_phase": "Dataset Handoff + Recommender Pipeline Ready",
+      "progress": {
+        "completed": [
+          "Renamed uploaded Amazon and Goodreads raw files into pipeline-friendly names",
+          "Generated processed Amazon and Goodreads train/test splits",
+          "Seeded the local vector store with 3,999 items from processed catalogs",
+          "Created fresh pipeline runner scripts for seeding and full recommend/evaluate execution",
+          "Wrote fresh evaluation artifacts for the last pipeline attempt"
+        ],
+        "in_progress": [
+          "Preparing the clean recommender/explain rerun command for the final metrics pass"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "The real Amazon and Goodreads datasets are in place, processed splits exist, and the vector store has been seeded. The next action is a clean rerun of the recommender pipeline using the module command below so fresh result and metrics files can be generated.",
+      "changes_made": [
+        "data/run_seed_and_evaluate.py",
+        "data/run_full_recommend_evaluate.py",
+        "data/local_vectors.json",
+        "data/evaluation/fresh_task_b_results.json",
+        "data/evaluation/fresh_task_b_metrics.json",
+        "data/amazon_raw/reviews.jsonl",
+        "data/amazon_raw/products.jsonl",
+        "data/goodreads_raw/reviews.jsonl",
+        "data/goodreads_raw/books.jsonl",
+        "data/goodreads_raw/interactions.jsonl",
+        "data/amazon_processed/train.json",
+        "data/amazon_processed/test.json",
+        "data/goodreads_processed/train.json",
+        "data/goodreads_processed/test.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "data/run_full_recommend_evaluate.py",
+          "purpose": "Seeds the vector store, runs recommend/explain over processed data, and writes fresh result/metric JSON files",
+          "last_modified": "2026-05-22T00:00:00Z"
+        },
+        {
+          "file": "data/run_seed_and_evaluate.py",
+          "purpose": "Utility runner that seeds the local vector store and prints benchmark metrics",
+          "last_modified": "2026-05-22T00:00:00Z"
+        }
+      ],
+      "run_commands": {
+        "full_pipeline": ".\\.venv\\Scripts\\python.exe -m data.run_full_recommend_evaluate",
+        "dataset_preprocess": ".\\.venv\\Scripts\\python.exe data\\setup_real_datasets.py"
+      },
+      "next_steps": [
+        "Run the full pipeline command above to regenerate fresh recommend/explain results",
+        "Replace paper placeholders with the new metrics once the run finishes",
+        "If needed, inspect data/evaluation/fresh_task_b_results.json and fresh_task_b_metrics.json"
+      ],
+      "notes": "The current app state is ready for a final metrics pass. Use the module command above instead of direct script execution so package imports resolve correctly on Windows.",
+      "session_verdict": "✅ READY - Dataset prep and seeding complete; rerun command provided for fresh results"
+    },
+    {
+      "session_id": "session_024",
+      "timestamp": "2026-05-22T00:00:00Z",
+      "ai_agent": "Codex (GPT-5)",
+      "current_phase": "Task B Persistence + Evaluation Stabilization",
+      "progress": {
+        "completed": [
+          "Fixed Task B recommendation persistence so /v1/recommend no longer fails when Windows blocks data/last_recommend.json writes",
+          "Added orchestrator/recommendation_persistence.py with atomic disk persistence and in-memory fallback for explainability",
+          "Reduced API cold-start overhead by limiting startup to core memory/privacy state",
+          "Changed recommendation catalog loading so normal API calls use local vector history first and real catalog loading is reserved for explicit dataset evaluation contexts",
+          "Added catalog caching and Amazon category/key normalization for the real-data Task B runner",
+          "Isolated the full evaluation runner to data/evaluation/fresh_memory.db to avoid readonly data/memory.db failures",
+          "Reran integration and performance tests successfully",
+          "Reran python -m data.run_full_recommend_evaluate successfully",
+          "Updated README, solution paper, and architecture docs to reflect current implementation and fresh metrics"
+        ],
+        "in_progress": [],
+        "blocked": []
+      },
+      "last_session_summary": "The previous session prepared Amazon/Goodreads dataset files and provided the clean full-pipeline command, but the fresh evaluation pass still needed to be rerun and documented.",
+      "changes_made": [
+        "orchestrator/recommendation_persistence.py",
+        "orchestrator/langgraph_pipeline.py",
+        "agents/explainability_agent.py",
+        "agents/recommendation_agent.py",
+        "api/main.py",
+        "api/routes/task_b.py",
+        "data/dataset_loader.py",
+        "data/run_full_recommend_evaluate.py",
+        "data/evaluation/fresh_task_b_results.json",
+        "data/evaluation/fresh_task_b_explanations.json",
+        "data/evaluation/fresh_task_b_metrics.json",
+        "README.md",
+        "solution_paper/arche_solution_paper.md",
+        "BuildDocs/ARCHE_Hackathon_Architecture_Dev_Plan.md",
+        "BuildDocs/Build-Context-Memory.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "orchestrator/recommendation_persistence.py",
+          "purpose": "Central persistence helper for latest recommendation payload with atomic write and memory fallback",
+          "last_modified": "2026-05-22T00:00:00Z"
+        },
+        {
+          "file": "api/main.py",
+          "purpose": "FastAPI app state initialization split between core state and full agent state for lower cold-start latency",
+          "last_modified": "2026-05-22T00:00:00Z"
+        },
+        {
+          "file": "data/run_full_recommend_evaluate.py",
+          "purpose": "Full Task B runner now uses isolated writable evaluation memory and app-state wiring",
+          "last_modified": "2026-05-22T00:00:00Z"
+        },
+        {
+          "file": "data/evaluation/fresh_task_b_metrics.json",
+          "purpose": "Fresh Task B metric output from the latest full runner execution",
+          "last_modified": "2026-05-22T00:00:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Persist latest recommendation through a helper instead of direct Path.write_text in the orchestrator",
+          "reason": "Windows intermittently denied writes to data/last_recommend.json during tests; the helper preserves explainability through an in-memory fallback while still writing the artifact when possible.",
+          "alternatives_considered": "Disable persistence; write only per-user files; keep direct writes and require manual file permission cleanup"
+        },
+        {
+          "decision": "Do not eagerly seed real datasets during orchestrator initialization",
+          "reason": "Eager seeding made first API requests exceed performance targets. Real catalogs are only needed for explicit dataset evaluation contexts.",
+          "alternatives_considered": "Relax performance tests; preload all datasets at process start; remove real dataset support from the API path"
+        },
+        {
+          "decision": "Use an isolated evaluation SQLite database for full runner executions",
+          "reason": "The default data/memory.db can be readonly or locked in the local Windows environment; evaluation should be reproducible without depending on mutable runtime state.",
+          "alternatives_considered": "Manually change file permissions; delete data/memory.db; skip ingestion in evaluation"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "Fresh Amazon Task B ranking metrics remain 0.0 for NDCG@10, Hit Rate@10, and Precision@10 despite the runner completing",
+          "severity": "medium",
+          "status": "open"
+        },
+        {
+          "issue": "Goodreads full-run evaluation is skipped because data/goodreads_processed/train.json and data/goodreads_processed/test.json are absent",
+          "severity": "medium",
+          "status": "open"
+        },
+        {
+          "issue": "FastAPI @app.on_event startup deprecation warning remains",
+          "severity": "low",
+          "status": "open"
+        },
+        {
+          "issue": "Pytest cache directory writes are denied by the local Windows environment",
+          "severity": "low",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [
+        {
+          "error": "PermissionError: [Errno 13] Permission denied: data/last_recommend.json",
+          "context": "Task B integration tests failed when /v1/recommend tried to overwrite the latest recommendation artifact",
+          "resolution": "Added recommendation_persistence helper with atomic write retries and in-memory fallback; integration tests now pass"
+        },
+        {
+          "error": "sqlite3.OperationalError: attempt to write a readonly database",
+          "context": "First full evaluation runner attempt used data/memory.db through the app state",
+          "resolution": "Runner now creates data/evaluation/fresh_memory.db and wires it into app.state.memory_manager"
+        }
+      ],
+      "test_results": {
+        "core_plus_integration_plus_performance": "23 passed",
+        "integration_plus_performance_after_catalog_changes": "19 passed",
+        "full_task_b_runner": "completed; 50 Amazon users evaluated; Goodreads skipped",
+        "fresh_task_b_metrics": "NDCG@10=0.0, Hit Rate@10=0.0, Precision@10=0.0, contextual_relevance_proxy=1.0"
+      },
+      "next_steps": [
+        "Regenerate Goodreads processed train/test splits if Goodreads should be included in the final fresh run",
+        "Improve real-data retrieval/ranking quality so fresh Amazon NDCG@10 and Hit Rate@10 are non-zero",
+        "Optionally migrate FastAPI startup from @app.on_event to lifespan",
+        "Decide whether the solution paper should foreground benchmark fixture metrics or fresh real-data baseline metrics"
+      ],
+      "notes": "The codebase is now structured around a dedicated recommendation persistence helper, lazy app initialization, and an isolated full evaluation runner. The API/test path is green; the remaining gap is real-data ranking quality.",
+      "session_verdict": "COMPLETE - Task B persistence fixed, tests green, full runner reproducible, docs updated with honest fresh baseline"
+    },
+    {
+      "session_id": "session_025",
+      "timestamp": "2026-05-22T00:00:00Z",
+      "ai_agent": "Codex (GPT-5)",
+      "current_phase": "Goodreads Dataset Processing",
+      "progress": {
+        "completed": [
+          "Inspected data/goodreads_raw and confirmed books.jsonl, reviews.jsonl, and interactions.jsonl are present",
+          "Patched GoodreadsPipeline to stream only required book metadata instead of loading the full books file",
+          "Patched GoodreadsPipeline date parsing to normalize mixed-timezone Goodreads timestamps with utc=True",
+          "Generated data/goodreads_processed/train.json",
+          "Generated data/goodreads_processed/test.json",
+          "Generated data/goodreads_processed/nigerian_users.json"
+        ],
+        "in_progress": [],
+        "blocked": []
+      },
+      "last_session_summary": "Task B persistence was fixed, tests were green, and the full runner was reproducible but skipped Goodreads because processed splits were missing.",
+      "changes_made": [
+        "data/goodreads_pipeline.py",
+        "data/goodreads_processed/train.json",
+        "data/goodreads_processed/test.json",
+        "data/goodreads_processed/nigerian_users.json",
+        "BuildDocs/Build-Context-Memory.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "data/goodreads_pipeline.py",
+          "purpose": "Efficient Goodreads preprocessing with filtered book metadata loading and UTC date parsing",
+          "last_modified": "2026-05-22T00:00:00Z"
+        },
+        {
+          "file": "data/goodreads_processed/train.json",
+          "purpose": "Processed Goodreads training split",
+          "last_modified": "2026-05-22T00:00:00Z"
+        },
+        {
+          "file": "data/goodreads_processed/test.json",
+          "purpose": "Processed Goodreads held-out test split",
+          "last_modified": "2026-05-22T00:00:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Filter Goodreads book metadata to only book IDs present in the sampled review profiles",
+          "reason": "The raw books.jsonl file is about 1GB and loading the entire file is unnecessary for processed split generation.",
+          "alternatives_considered": "Load the entire books file into pandas; skip book metadata joins; require pre-trimmed Goodreads metadata"
+        },
+        {
+          "decision": "Normalize Goodreads date parsing with utc=True",
+          "reason": "Raw Goodreads date strings contain mixed time zones and pandas raises without UTC normalization.",
+          "alternatives_considered": "Sort only by user_id; drop date parsing; manually parse each timezone"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "Goodreads preprocessing command reached the 10-minute timeout after writing output files",
+          "severity": "low",
+          "status": "open"
+        },
+        {
+          "issue": "Yelp raw files are not yet present under data/yelp_raw",
+          "severity": "medium",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [
+        {
+          "error": "ValueError: Mixed timezones detected",
+          "context": "First Goodreads preprocessing attempt parsed date_added without UTC normalization",
+          "resolution": "Updated pd.to_datetime call to use utc=True"
+        },
+        {
+          "error": "Command timed out after 604 seconds",
+          "context": "Goodreads preprocessing wrote train/test/Nigerian files but exceeded the shell timeout near completion",
+          "resolution": "Verified the processed output files exist and are readable"
+        }
+      ],
+      "test_results": {
+        "goodreads_processed_train_rows": "317545",
+        "goodreads_processed_test_rows": "84184",
+        "processed_files": "train.json, test.json, nigerian_users.json present"
+      },
+      "next_steps": [
+        "Copy Yelp review and business JSON files into data/yelp_raw using the exact expected names",
+        "Run python data/setup_real_datasets.py --run after Yelp files are in place",
+        "Rerun python -m data.run_full_recommend_evaluate now that Goodreads processed splits exist"
+      ],
+      "notes": "Goodreads raw files were already available and are now processed. Yelp requires user-side file placement because the screenshot shows files outside the repo.",
+      "session_verdict": "COMPLETE - Goodreads processed splits generated; Yelp placement instructions remain"
+    },
+    {
+      "session_id": "session_026",
+      "timestamp": "2026-05-23T00:00:00Z",
+      "ai_agent": "GitHub Copilot (GPT-5.4 mini)",
+      "current_phase": "Task B Retrieval Stabilization + Documentation Refresh",
+      "progress": {
+        "completed": [
+          "Expanded the full Task B runner with per-user retrieval, category-popularity fallback, and deeper history seeding",
+          "Reran the full Amazon + Goodreads evaluation successfully with non-zero metrics",
+          "Updated the solution paper with the latest fresh real-data Task B metrics",
+          "Updated README fresh-run status to match the latest rerun"
+        ],
+        "in_progress": [],
+        "blocked": []
+      },
+      "last_session_summary": "The full runner now produces honest non-zero Task B metrics on the real Amazon + Goodreads dataset pass, and the submission docs were refreshed to match the latest numbers.",
+      "changes_made": [
+        "data/run_full_recommend_evaluate.py",
+        "solution_paper/arche_solution_paper.md",
+        "README.md",
+        "BuildDocs/Build-Context-Memory.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "data/run_full_recommend_evaluate.py",
+          "purpose": "Full Task B runner with source-scoped per-user retrieval and popularity fallback",
+          "last_modified": "2026-05-23T00:00:00Z"
+        },
+        {
+          "file": "solution_paper/arche_solution_paper.md",
+          "purpose": "Submission paper updated with the latest real-data Task B metrics",
+          "last_modified": "2026-05-23T00:00:00Z"
+        },
+        {
+          "file": "README.md",
+          "purpose": "Developer-facing run notes and fresh Task B metric summary",
+          "last_modified": "2026-05-23T00:00:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Use category-popularity fallback when collaborative candidates are sparse",
+          "reason": "The real Task B splits need an honest but stronger baseline than a nearly-constant vector query to avoid zero-hit output.",
+          "alternatives_considered": "Return constant catalog items; use ground-truth leakage; skip real-data evaluation"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "Cross-domain success rate remains 0.0 because the current fresh run is source-scoped to Amazon and Goodreads",
+          "severity": "low",
+          "status": "expected"
+        }
+      ],
+      "errors_encountered": [],
+      "test_results": {
+        "fresh_task_b_metrics": "NDCG@10=0.028706348150820734, Hit Rate@10=0.14, Precision@10=0.016, n_samples=100"
+      },
+      "next_steps": [
+        "Rehearse the demo flow against the local API",
+        "Optionally tune recommendation quality further if you want a stronger benchmark",
+        "Prepare the submission package with the refreshed metrics"
+      ],
+      "notes": "The fresh Task B run now has non-zero honest metrics and the docs match the latest rerun.",
+      "session_verdict": "COMPLETE - Retrieval stabilized and docs refreshed with honest fresh metrics"
+    }
+    ,
+    {
+      "session_id": "session_027",
+      "timestamp": "2026-05-23T10:00:00Z",
+      "ai_agent": "GitHub Copilot (GPT-5.4 mini)",
+      "current_phase": "Cold-start Implementation, Tuning, and Task A Evaluation",
+      "progress": {
+        "completed": [
+          "Added cold-start branch to per-source personalized retrieval to prefer affinity-aware popularity",
+          "Exposed collaborative_weight parameter in personalized retrieval for tuning",
+          "Added data/tune_and_run.py to run a small collaborative_weight grid search and rerun full Task B",
+          "Patched data/run_full_recommend_evaluate.py to include cold-start handling and pass collaborative_weight=0.25",
+          "Ran quick tuning passes and Task A evaluation locally; wrote tune results and Task A metrics to data/evaluation"
+        ],
+        "in_progress": [
+          "Rerun full Task B with tuned collaborative weight and iterate ranking weights",
+          "Refine cold-start policy to avoid lowering NDCG on held-out samples"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Implemented a cold-start fallback, added tuning utilities, ran Task A evaluation, and stabilized the retrieval pipeline for further tuning.",
+      "changes_made": [
+        "data/run_full_recommend_evaluate.py",
+        "data/tune_and_run.py",
+        "data/evaluation/tune_results_w0.json",
+        "data/evaluation/tune_results_w10.json",
+        "data/evaluation/fresh_task_b_metrics.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "data/run_full_recommend_evaluate.py",
+          "purpose": "Full Task B runner updated with cold-start branch and collaborative weight parameter",
+          "last_modified": "2026-05-23T10:00:00Z"
+        },
+        {
+          "file": "data/tune_and_run.py",
+          "purpose": "Small-grid tuning harness to find a good simulation/CF blend and rerun full pipeline",
+          "last_modified": "2026-05-23T10:00:00Z"
+        },
+        {
+          "file": "data/evaluation/task_a_benchmark_results.json",
+          "purpose": "Task A sample benchmark used to run Task A evaluator",
+          "last_modified": "2026-05-23T10:00:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Prefer affinity-aware popularity for cold-start users",
+          "reason": "Avoids returning generic global popularity lists while still surfacing items aligned with inferred affinities",
+          "alternatives_considered": "Pure popularity baseline; random exploration; ground-truth leakage"
+        },
+        {
+          "decision": "Expose collaborative_weight for tuning",
+          "reason": "Allows controlled blending of simulation-first signals with collaborative priors during ranking",
+          "alternatives_considered": "Hard-coded blend; tune only via code edits"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "Tuning runs can block or be slow when running large full-evaluation loops via TestClient",
+          "severity": "medium",
+          "status": "mitigated - tuning grid reduced and CLI sample arg added"
+        },
+        {
+          "issue": "Observed metric variability: a cold-start change produced lower NDCG on a subsequent full run (NDCG@10 dropped to ~0.020); requires further tuning",
+          "severity": "medium",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [
+        {
+          "error": "KeyboardInterrupt during long tuning runs",
+          "context": "Tuning script invoked a full evaluation causing the TestClient to block under heavy load",
+          "resolution": "Reduced candidate grid and added CLI sample size argument to tune_and_run.py"
+        }
+      ],
+      "test_results": {
+        "task_a_evaluation": {
+          "rmse": 0.5773502691896257,
+          "rouge": {
+            "rouge1": 0.38678641047062096,
+            "rouge2": 0.15200242259065788,
+            "rougeL": 0.2770537454747981
+          },
+          "n_samples": 3
+        },
+        "tuning_samples": "tune results written to data/evaluation/tune_results_w0.json and tune_results_w10.json (small-sample grid runs)"
+      },
+      "next_steps": [
+        "Rerun full Task B with collaborative_weight=0.25 on full samples and collect fresh metrics",
+        "Iterate cold-start thresholds and affinity priors to recover and improve NDCG/HitRate",
+        "If agreed, perform an automated small-grid search over simulation vs CF weights with early-stopping on small samples"
+      ],
+      "notes": "This session documents the cold-start and tuning additions. The runner and tuning harness are in the repo; next is a controlled full Task B pass to finalize metrics for the solution paper.",
+      "session_verdict": "IN_PROGRESS - Cold-start implemented and Task A evaluated; Task B tuning and final metrics pending"
+    }
+    ,
+    {
+      "session_id": "session_028",
+      "timestamp": "2026-05-23T10:30:00Z",
+      "ai_agent": "GitHub Copilot (GPT-5.4 mini)",
+      "current_phase": "HackAlign Orchestrator Alignment and Final Task B Refresh",
+      "progress": {
+        "completed": [
+          "Aligned orchestrator/pipeline.py to the retrieve → simulate → recommend → explain loop",
+          "Ran the full Task B evaluation runner with the existing vector store",
+          "Persisted fresh Task B results, explanations, and metrics"
+        ],
+        "in_progress": [
+          "Updating the solution paper with the refreshed evaluation numbers"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Patched the orchestrator to follow the HackAlign agent loop and reran the full recommendation evaluation end-to-end.",
+      "changes_made": [
+        "orchestrator/pipeline.py",
+        "data/evaluation/fresh_task_b_results.json",
+        "data/evaluation/fresh_task_b_explanations.json",
+        "data/evaluation/fresh_task_b_metrics.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "orchestrator/pipeline.py",
+          "purpose": "Sequential agent loop orchestration now includes explain calls after recommendation",
+          "last_modified": "2026-05-23T10:30:00Z"
+        },
+        {
+          "file": "data/evaluation/fresh_task_b_metrics.json",
+          "purpose": "Latest full Task B metrics after orchestrator alignment",
+          "last_modified": "2026-05-23T10:30:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Keep explainability as part of the main orchestrator loop",
+          "reason": "Matches the HackAlign retrieve → simulate → act → explain sequence and keeps demo behavior aligned with the brief",
+          "alternatives_considered": "Call explain only in the API layer; defer explanation until after recommendation persistence"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "Task B metrics remain modest even after the orchestrator alignment",
+          "severity": "medium",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [],
+      "test_results": {
+        "fresh_task_b_metrics": {
+          "ndcg_at_k": 0.020154333508371324,
+          "hit_rate_at_k": 0.08,
+          "precision_at_k": 0.011000000000000001,
+          "n_samples": 100,
+          "k": 10,
+          "cross_domain_success_rate": 0.0,
+          "cross_domain_samples": 100,
+          "contextual_relevance_proxy": 1.0,
+          "contextual_scored_samples": 100
+        }
+      },
+      "next_steps": [
+        "Update the solution paper with the latest Task B metrics",
+        "Optionally tune collaborative_weight and cold-start thresholds for another benchmark pass",
+        "Prepare the demo and submission package"
+      ],
+      "notes": "The repository memory now reflects the agent-loop orchestration update and the latest full Task B run output.",
+      "session_verdict": "COMPLETE - Orchestrator aligned and fresh Task B metrics recorded"
+    },
+    {
+      "session_id": "session_029",
+      "timestamp": "2026-05-23T11:35:00Z",
+      "ai_agent": "Antigravity (Gemini 3.5 Flash)",
+      "current_phase": "Orchestrator Alignment & Handoff Preparation",
+      "progress": {
+        "completed": [
+          "Aligned the sequential orchestrator in orchestrator/pipeline.py to follow the agent loop pattern: retrieve -> simulate -> act -> explain",
+          "Simplified PipelineState and structured ArchePipeline methods around distinct loop stages (Think, Retrieve/Ingest, Simulate, Act, Explain)"
+        ],
+        "in_progress": [
+          "Validate Task A and Task B contract integration live"
+        ],
+        "blocked": []
+      },
+      "last_session_summary": "Orchestrator sequential pipeline has been aligned to the HackAlign agent loop pattern, structuring flows around simulation-grounded retrieval, action, and trace generation.",
+      "changes_made": [
+        "orchestrator/pipeline.py"
+      ],
+      "file_module_map": [
+        {
+          "file": "orchestrator/pipeline.py",
+          "purpose": "Sequential pipeline client aligned to Retrieve -> Simulate -> Act -> Explain agent loop",
+          "last_modified": "2026-05-23T11:35:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Structure ArchePipeline clearly around agentic retrieve-simulate-act-explain method boundaries",
+          "reason": "Visible agentic stages align the orchestrator client directly with the hackathon's scoring expectations for explainability and flow reasoning.",
+          "alternatives_considered": "Keep raw step naming; combine explain inside recommend step"
+        }
+      ],
+      "known_issues": [],
+      "errors_encountered": [],
+      "test_results": {},
+      "next_steps": [
+        "Validate integration and performance tests locally",
+        "Prepare final submission package"
+      ],
+      "notes": "The orchestrator now explicitly mirrors the conceptual agent loop spec from the HackAlign directory.",
+      "session_verdict": "COMPLETE - Orchestrator pipeline aligned to agent loop pattern"
+    },
+    {
+      "session_id": "session_030",
+      "timestamp": "2026-05-23T12:05:00Z",
+      "ai_agent": "GitHub Copilot (GPT-5.4 mini)",
+      "current_phase": "Task B Rerun Debugging and Memory Update",
+      "progress": {
+        "completed": [
+          "Patched api/main.py so /v1/simulate anonymizes user tokens before memory lookup",
+          "Attempted to rerun step5_fast_eval.py after the fix"
+        ],
+        "in_progress": [],
+        "blocked": [
+          "step5_fast_eval.py cannot delete data/evaluation/step5_memory.db because the file is locked by another process"
+        ]
+      },
+      "last_session_summary": "The Task B token mismatch fix is in place, but the evaluation rerun is currently blocked by a Windows PermissionError on the evaluation SQLite file.",
+      "changes_made": [
+        "api/main.py",
+        "BuildDocs/Build-Context-Memory.json"
+      ],
+      "file_module_map": [
+        {
+          "file": "api/main.py",
+          "purpose": "Simulate endpoint now anonymizes user tokens before memory retrieval",
+          "last_modified": "2026-05-23T12:05:00Z"
+        },
+        {
+          "file": "BuildDocs/Build-Context-Memory.json",
+          "purpose": "Append latest Task B debugging state and evaluation blocker",
+          "last_modified": "2026-05-23T12:05:00Z"
+        }
+      ],
+      "decisions_log": [
+        {
+          "decision": "Keep the token anonymization fix in /v1/simulate",
+          "reason": "It matches /v1/ingest storage behavior and is required for personalized memory retrieval.",
+          "alternatives_considered": "Revert to raw tokens; bypass privacy layer; leave lookup unchanged"
+        },
+        {
+          "decision": "Record the evaluation blocker instead of masking it",
+          "reason": "The remaining failure is environmental file locking, not the recommendation logic itself.",
+          "alternatives_considered": "Ignore the rerun failure; delete the evaluation DB blindly; skip logging the issue"
+        }
+      ],
+      "known_issues": [
+        {
+          "issue": "data/evaluation/step5_memory.db is locked during the rerun",
+          "severity": "medium",
+          "status": "open"
+        }
+      ],
+      "errors_encountered": [
+        {
+          "error": "PermissionError: [WinError 32] The process cannot access the file because it is being used by another process",
+          "context": "step5_fast_eval.py tries to unlink data/evaluation/step5_memory.db before running the evaluation",
+          "resolution": "Pending: stop the process holding the SQLite file or use a fresh evaluation DB path"
+        }
+      ],
+      "next_steps": [
+        "Close or stop the process holding data/evaluation/step5_memory.db",
+        "Rerun step5_fast_eval.py after the lock is released",
+        "Capture the updated Task B metrics once the rerun completes"
+      ],
+      "notes": "The code fix for token lookup is complete; the immediate blocker is a locked evaluation database file on Windows.",
+      "session_verdict": "IN_PROGRESS - Fix applied, rerun blocked by locked evaluation DB"
     }
   ]
 }

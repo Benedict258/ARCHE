@@ -6,7 +6,7 @@ ARCHE is a simulation-driven agentic system for two related hackathon tasks: Tas
 
 > Metrics below were generated from the reproducible benchmark files in `data/evaluation/` using the built-in runner.
 
-Key results in the current MVP:
+Benchmark fixture results in the current MVP:
 
 - Task A RMSE: 0.5774
 - Task A ROUGE-1/2/L: 0.3868 / 0.1520 / 0.2771
@@ -18,6 +18,18 @@ Verification note (May 20, 2026): metrics were re-run using
 `python -m data.evaluation.run_evaluation` over
 `data/evaluation/task_a_benchmark_results.json` and
 `data/evaluation/task_b_benchmark_results.json` and match the values above.
+
+Fresh real-data Task B pass (May 22, 2026):
+
+- Command: `python -m data.run_full_recommend_evaluate`
+- Dataset evaluated: Amazon + Goodreads processed splits, 100 users total
+- Goodreads status: included (50 users evaluated)
+- Fresh NDCG@10: 0.0287
+- Fresh Hit Rate@10: 0.1400
+- Fresh Precision@10: 0.0160
+- Fresh contextual relevance proxy: 1.0000
+
+Interpretation: the API pipeline is reproducible end to end and now produces non-zero fresh retrieval metrics on real data. The benchmark fixtures remain useful for contract validation; the fresh artifacts should be treated as the honest current real-data baseline.
 
 ## 1. Introduction
 
@@ -75,7 +87,7 @@ The repo now includes preprocessing pipelines for:
 - Amazon reviews
 - Goodreads reviews
 
-The live demo runtime still uses mock/demo data until raw dataset files are downloaded and processed.
+The live demo runtime uses local memory and the local vector store by default. The current workspace includes both Amazon and Goodreads raw + processed files, and both sources participate in the fresh Task B pass.
 
 ### 4.2 Task A Evaluation
 
@@ -118,7 +130,8 @@ Current repo state:
 - Docker containerization: added
 - Evaluation scripts: added
 - Frontend demo: working
-- Real dataset ingestion: pipelines added, raw data still required
+- Real dataset ingestion: Amazon and Goodreads processed splits are present and both participate in the fresh Task B pass
+- Test status: integration and performance suites pass after the persistence and initialization cleanup
 
 ## 7. Future Work
 

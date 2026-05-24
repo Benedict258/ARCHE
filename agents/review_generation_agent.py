@@ -10,8 +10,8 @@ from .base_agent import BaseAgent, AgentState
 class ReviewGenerationAgent(BaseAgent):
     """Task A agent that generates rating + review from simulated behavior.
 
-    The implementation is deterministic for MVP reliability while preserving
-    the agent boundary required by HackAlign.
+    The implementation prefers LLM-based generation when available; falls back
+    to the deterministic generator for reliability.
     """
 
     name = "review_generation"
@@ -24,7 +24,7 @@ class ReviewGenerationAgent(BaseAgent):
         return state
 
     @classmethod
-    def generate(
+    async def generate(
         cls,
         *,
         user_token: str,
@@ -33,6 +33,55 @@ class ReviewGenerationAgent(BaseAgent):
         context: dict[str, Any],
         simulation: Any,
     ) -> dict[str, Any]:
+        """Prefer LLM-based generation: construct a prompt with the simulation snapshot
+        and request a JSON response with rating, review text, confidence, and reasoning.
+
+        If LLM is unavailable or fails, use the deterministic generator.
+        """
+        # Try LLM path
+        try:
+            from agents.simulation_agent import SimulationAgent
+
+            sim_agent = SimulationAgent()
+            if sim_agent.llm is not None:
+                # Build prompt
+                system_prompt = """You are ARCHE's Review Generation engine. Given a behavioral snapshot, user history, and item details,
+produce a realistic review text and a star rating. Respond with a JSON object with keys:
+predicted_rating (int 1-5), generated_review (string), confidence (0.0-1.0), reasoning (brief string).
+Do NOT include any surrounding commentary."""
+
+                snapshot = getattr(simulation, 'behavioral_snapshot', simulation) if simulation is not None else {}
+                user_history_text = "\n".join([f"- {h.get('item_name')}: {h.get('review_text')} ({h.get('rating')})" for h in user_history])
+
+                user_prompt = f"Behavioral snapshot:\n{snapshot}\n\nUser history:\n{user_history_text}\n\nItem details:\n{item}\n\nContext:\n{context}\n\nProduce the JSON response."
+
+                content = await sim_agent.call_llm(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.45)
+
+                # Parse LLM output
+                if isinstance(content, str):
+                    if "```json" in content:
+                        content = content.split("```json", 1)[1].split("```", 1)[0]
+                    elif "```" in content:
+                        content = content.split("```", 1)[1].split("```", 1)[0]
+                    parsed = None
+                    try:
+                        parsed = __import__("json").loads(content.strip())
+                    except Exception:
+                        parsed = None
+
+                    if parsed and isinstance(parsed, dict):
+                        return {
+                            "predicted_rating": int(parsed.get("predicted_rating") or parsed.get("rating") or 3),
+                            "generated_review": str(parsed.get("generated_review") or parsed.get("review_text") or ""),
+                            "tone_confidence": float(parsed.get("confidence") or parsed.get("tone_confidence") or 0.0),
+                            "behavioural_basis": str(parsed.get("reasoning") or parsed.get("behavioural_basis") or ""),
+                            "user_token": user_token,
+                        }
+        except Exception:
+            # LLM path failed; fall back to deterministic
+            pass
+
+        # Deterministic fallback (original behavior)
         history_texts = [str(entry.get("review_text") or "") for entry in user_history]
         register = cls.detect_register(history_texts)
         nigerian_context = cls.get_nigerian_calibration(register)

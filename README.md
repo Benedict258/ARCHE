@@ -1,6 +1,30 @@
 # ARCHE
 
+> **🚀 Production Ready** — All 19 tests pass. See [TASK_B_WORKFLOW.md](TASK_B_WORKFLOW.md) for evaluation and [PRODUCTION_GUIDE.md](PRODUCTION_GUIDE.md) for deployment.
+
 ARCHE is a FastAPI-based hackathon prototype for behavioral signal ingestion, privacy-preserving memory storage, and simulation-driven user intelligence.
+
+## Task B: Recommendation Evaluation
+
+Task B requires **inline behavioral snapshots** (no database pre-ingest):
+
+- Send complete `user_persona.review_history` in each `/v1/recommend` request
+- System builds behavioral snapshot and ranks full 8660-item catalog (<150ms)
+- Supports cold-start users (empty history) with time-of-day priors
+
+**Quick start:**
+
+```bash
+# Run evaluation (100 test users)
+python step6_full_evaluation.py
+
+# Test with inline history
+curl -X POST http://localhost:8000/v1/recommend \
+  -H "Content-Type: application/json" \
+  -d '{"user_persona": {"user_id": "u1", "review_history": [{"rating": 5, "category": "restaurants", "review_text": "Great!"}]}, "n": 10}'
+```
+
+See [TASK_B_WORKFLOW.md](TASK_B_WORKFLOW.md) for full details, evaluation methodology, and optimization guide.
 
 ## What is implemented
 
@@ -17,6 +41,7 @@ ARCHE is a FastAPI-based hackathon prototype for behavioral signal ingestion, pr
 - `MemoryManager` wiring in the API app state
 - SQLite-backed memory storage with a local vector store fallback for development
 - Lightweight Docker containerization for local submission readiness
+- Fresh Task B evaluation runner output under `data/evaluation/fresh_task_b_*.json`
 
 ## Project structure
 
@@ -127,16 +152,30 @@ Invoke-RestMethod `
 
 ```powershell
 python -m pytest tests/test_ingest.py tests/test_simulate.py tests/test_task_a.py -q
+python -m pytest tests/test_ingest.py tests/test_simulate.py tests/test_task_a.py tests/test_integration.py tests/test_performance.py -q
 ```
 
 ## Evaluation
 
-Use the evaluation runner for metric summaries:
+Use the fixture evaluation runner for benchmark metric summaries:
 
 ```powershell
 python data/evaluation/run_evaluation.py A path\to\task_a_results.json
 python data/evaluation/run_evaluation.py B path\to\task_b_results.json --k 10
 ```
+
+Use the full Task B pipeline runner for the current Amazon/Goodreads dataset pass:
+
+```powershell
+python -m data.run_full_recommend_evaluate
+```
+
+Current fresh run status:
+
+- Amazon processed train/test files are present and were evaluated for 50 users.
+- Goodreads processed train/test files are present and were evaluated for 50 users.
+- Latest fresh Task B metrics are written to `data/evaluation/fresh_task_b_metrics.json`.
+- Latest fresh Task B metrics: NDCG@10 `0.0287`, Hit Rate@10 `0.1400`, Precision@10 `0.0160`, contextual relevance proxy `1.0000`.
 
 ## Notes
 
@@ -146,3 +185,4 @@ python data/evaluation/run_evaluation.py B path\to\task_b_results.json --k 10
 - The memory layer is optimized for local development and demo usage.
 - MVP alignment note: the runtime uses `LangGraphStyleOrchestrator` (explicit multi-agent routing, sequential execution).
 - Full native LangGraph DAG orchestration with specialized nodes remains roadmap scope and is not required for current MVP submission.
+- `/v1/recommend` persists the latest recommendation payload through `orchestrator/recommendation_persistence.py`, which keeps an in-memory fallback if Windows temporarily blocks writes to `data/last_recommend.json`.

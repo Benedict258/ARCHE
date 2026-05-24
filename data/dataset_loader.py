@@ -36,6 +36,7 @@ class UnifiedDatasetLoader:
         self.yelp = YelpPipeline(raw_dir=self.root_dir / "yelp_raw", processed_dir=self.root_dir / "yelp_processed")
         self.amazon = AmazonPipeline(raw_dir=self.root_dir / "amazon_raw", processed_dir=self.root_dir / "amazon_processed")
         self.goodreads = GoodreadsPipeline(raw_dir=self.root_dir / "goodreads_raw", processed_dir=self.root_dir / "goodreads_processed")
+        self._catalog_cache: dict[int, list[dict[str, Any]]] = {}
 
     @staticmethod
     def _read_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
@@ -85,41 +86,55 @@ class UnifiedDatasetLoader:
         return normalized.replace(" ", "_") or "unknown"
 
     def _catalog_from_yelp(self, limit: int) -> list[DatasetItem]:
-        candidates: list[DatasetItem] = []
+        candidates: dict[str, DatasetItem] = {}
+
+        raw_businesses = self._read_jsonl(self.root_dir / "yelp_raw" / "yelp_academic_dataset_business.json")
+        for row in raw_businesses:
+            name = row.get("name") or "yelp_business"
+            categories = row.get("categories") or "restaurant"
+            key = f"yelp:{row.get('business_id') or self._slug(name)}"
+            candidates[key] = DatasetItem(
+                key=key,
+                item_name=str(name),
+                item_category=str(categories).split(",")[0].strip() or "restaurant",
+                source="yelp",
+                description=str(row.get("address") or ""),
+                price_tier=self._normalize_price_tier(
+                    row.get("attributes", {}).get("RestaurantsPriceRange2") if isinstance(row.get("attributes"), dict) else None
+                ),
+                metadata={"city": row.get("city"), "state": row.get("state"), "stars": row.get("stars")},
+            )
+
         processed_train = self.root_dir / "yelp_processed" / "train.json"
         processed_source = self._read_jsonl(processed_train, limit=limit)
-        if processed_source:
-            for row in processed_source:
-                name = row.get("name") or row.get("business_name") or row.get("item_name") or "yelp_item"
-                categories = row.get("categories") or row.get("item_category") or row.get("category") or "restaurant"
-                candidates.append(
-                    DatasetItem(
-                        key=f"yelp:{row.get('business_id') or row.get('item_id') or self._slug(name)}",
-                        item_name=str(name),
-                        item_category=str(categories).split(",")[0].strip() or "restaurant",
-                        source="yelp",
-                        description=str(row.get("text") or row.get("review_text") or ""),
-                        price_tier=self._normalize_price_tier(row.get("price_tier") or row.get("attributes", {}).get("RestaurantsPriceRange2") if isinstance(row.get("attributes"), dict) else None),
-                        metadata={"city": row.get("city"), "state": row.get("state"), "stars": row.get("stars")},
+        for row in processed_source:
+            name = row.get("name") or row.get("business_name") or row.get("item_name") or "yelp_item"
+            categories = row.get("categories") or row.get("item_category") or row.get("category") or "restaurant"
+            key = f"yelp:{row.get('business_id') or row.get('item_id') or self._slug(name)}"
+            existing = candidates.get(key)
+            candidates[key] = DatasetItem(
+                key=key,
+                item_name=str(name),
+                item_category=str(categories).split(",")[0].strip() or (existing.item_category if existing else "restaurant"),
+                source="yelp",
+                description=str(row.get("text") or row.get("review_text") or (existing.description if existing else "")),
+                price_tier=self._normalize_price_tier(
+                    row.get("price_tier")
+                    or (
+                        row.get("attributes", {}).get("RestaurantsPriceRange2")
+                        if isinstance(row.get("attributes"), dict)
+                        else None
                     )
-                )
-        else:
-            raw_businesses = self._read_jsonl(self.root_dir / "yelp_raw" / "yelp_academic_dataset_business.json", limit=limit)
-            for row in raw_businesses:
-                name = row.get("name") or "yelp_business"
-                categories = row.get("categories") or "restaurant"
-                candidates.append(
-                    DatasetItem(
-                        key=f"yelp:{row.get('business_id') or self._slug(name)}",
-                        item_name=str(name),
-                        item_category=str(categories).split(",")[0].strip() or "restaurant",
-                        source="yelp",
-                        description=str(row.get("address") or ""),
-                        price_tier=self._normalize_price_tier(row.get("attributes", {}).get("RestaurantsPriceRange2") if isinstance(row.get("attributes"), dict) else None),
-                        metadata={"city": row.get("city"), "state": row.get("state"), "stars": row.get("stars")},
-                    )
-                )
-        return candidates[:limit]
+                    or (existing.price_tier if existing else "mid")
+                ),
+                metadata={
+                    "city": row.get("city") or (existing.metadata.get("city") if existing else None),
+                    "state": row.get("state") or (existing.metadata.get("state") if existing else None),
+                    "stars": row.get("stars") or (existing.metadata.get("stars") if existing else None),
+                },
+            )
+
+        return list(candidates.values())[:limit]
 
     def _catalog_from_amazon(self, limit: int) -> list[DatasetItem]:
         candidates: list[DatasetItem] = []
@@ -131,10 +146,19 @@ class UnifiedDatasetLoader:
             source_rows = reviews
         for row in source_rows:
             name = row.get("title") or row.get("productTitle") or row.get("product_name") or row.get("asin") or "amazon_item"
-            category = row.get("category") or row.get("categories") or row.get("main_cat") or "shopping"
+            category = (
+                row.get("category")
+                or row.get("main_category")
+                or row.get("main_cat")
+                or row.get("store")
+                or row.get("categories")
+                or "shopping"
+            )
+            if isinstance(category, list):
+                category = category[0] if category else "shopping"
             candidates.append(
                 DatasetItem(
-                    key=f"amazon:{row.get('asin') or row.get('product_id') or self._slug(name)}",
+                    key=f"amazon:{row.get('parent_asin') or row.get('asin') or row.get('product_id') or self._slug(name)}",
                     item_name=str(name),
                     item_category=str(category).split(",")[0].strip() or "shopping",
                     source="amazon",
@@ -168,6 +192,9 @@ class UnifiedDatasetLoader:
         return candidates[:limit]
 
     def load_catalog(self, limit_per_source: int = 200) -> list[dict[str, Any]]:
+        if limit_per_source in self._catalog_cache:
+            return self._catalog_cache[limit_per_source]
+
         items: list[DatasetItem] = []
         items.extend(self._catalog_from_yelp(limit_per_source))
         items.extend(self._catalog_from_amazon(limit_per_source))
@@ -177,7 +204,7 @@ class UnifiedDatasetLoader:
         for item in items:
             deduped[item.key] = item
 
-        return [
+        catalog = [
             {
                 "key": item.key,
                 "item_name": item.item_name,
@@ -189,6 +216,29 @@ class UnifiedDatasetLoader:
             }
             for item in deduped.values()
         ]
+        self._catalog_cache[limit_per_source] = catalog
+        return catalog
+
+    def load_puretest_catalog(self) -> list[dict[str, Any]]:
+        """Load the curated small benchmark catalog stored in data/puretest."""
+        path = self.root_dir / "puretest" / "catalog.jsonl"
+        if not path.exists():
+            return []
+        return self._read_jsonl(path)
+
+    def load_puretest_cases(self, task: str) -> list[dict[str, Any]]:
+        """Load curated Task A or Task B benchmark cases from data/puretest."""
+        task = task.upper().strip()
+        if task not in {"A", "B"}:
+            raise ValueError("task must be 'A' or 'B'")
+        path = self.root_dir / "puretest" / f"task_{task.lower()}_cases.jsonl"
+        if not path.exists():
+            return []
+        return self._read_jsonl(path)
+
+    def has_puretest_datasets(self) -> bool:
+        """Return True when the curated benchmark pack is present."""
+        return (self.root_dir / "puretest" / "manifest.json").exists()
 
     def has_real_datasets(self) -> bool:
         return bool(

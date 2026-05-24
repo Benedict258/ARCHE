@@ -28,13 +28,24 @@ class ContextAgent(BaseAgent):
     @staticmethod
     def normalize(context: dict[str, Any] | None) -> ContextSummary:
         context = context or {}
-        time_bucket = str(context.get("time_bucket") or "unspecified")
-        day_type = str(context.get("day_type") or "unspecified")
-        device_class = str(context.get("device_class") or "unspecified")
-        network_quality = str(context.get("network_quality") or "medium")
-        region_tier = str(context.get("region_tier") or context.get("region") or "unspecified")
-        session_depth = int(context.get("session_depth") or 0)
-        entry_point = str(context.get("entry_point") or "direct")
+        time_bucket = str(
+            context.get("time_bucket")
+            or context.get("time_of_day")
+            or context.get("time")
+            or "unspecified"
+        )
+        day_type = str(context.get("day_type") or context.get("day") or "unspecified")
+        device_class = str(context.get("device_class") or context.get("device") or "unspecified")
+        network_quality = str(context.get("network_quality") or context.get("network") or "medium")
+        region_tier = str(
+            context.get("region_tier")
+            or context.get("location_tier")
+            or context.get("region")
+            or context.get("location")
+            or "unspecified"
+        )
+        session_depth = int(context.get("session_depth") or context.get("depth") or 0)
+        entry_point = str(context.get("entry_point") or context.get("occasion") or "direct")
 
         time_boosts = [time_bucket] if time_bucket != "unspecified" else []
         if device_class != "unspecified":
