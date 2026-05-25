@@ -1,4 +1,5 @@
-const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim()
+const DEFAULT_API_BASE = 'https://arche-webapp-api.onrender.com'
+const rawBase = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).trim()
 
 export const API_BASE = rawBase.replace(/\/$/, '')
 
@@ -12,4 +13,4 @@ export function apiUrl(path){
   return `${API_BASE}${path}`
 }
 
-export const docsUrl = API_BASE ? `${API_BASE}/docs` : '/docs'
+export const docsUrl = `${API_BASE}/docs`

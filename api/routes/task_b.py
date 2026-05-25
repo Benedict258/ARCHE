@@ -310,6 +310,16 @@ async def recommend(payload: RecommendRequest, request: Request):
     return out
 
 
+@router.get("/v1/recommend")
+@router.get("/api/v1/recommend")
+async def recommend_help():
+    return {
+        "method": "POST",
+        "endpoint": "/v1/recommend",
+        "hint": "Send JSON with user_token, context, n, domain_filter, enable_live_data, output_format.",
+    }
+
+
 @router.post("/v1/explain", response_model=ExplainResponse)
 @router.post("/api/v1/explain", response_model=ExplainResponse)
 async def explain(payload: ExplainRequest, request: Request):
@@ -326,3 +336,13 @@ async def explain(payload: ExplainRequest, request: Request):
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/v1/explain")
+@router.get("/api/v1/explain")
+async def explain_help():
+    return {
+        "method": "POST",
+        "endpoint": "/v1/explain",
+        "hint": "Send JSON with user_token and recommendation_id.",
+    }

@@ -431,6 +431,15 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/v1/ingest")
+async def ingest_help():
+    return {
+        "method": "POST",
+        "endpoint": "/v1/ingest",
+        "hint": "Send a JSON body with user_token and signal or event fields.",
+    }
+
+
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
@@ -495,6 +504,15 @@ async def dataset_status():
         "has_real_datasets": loader.has_real_datasets(),
         "catalog_size": len(catalog),
         "sources": sorted({item.get("source", "unknown") for item in catalog}),
+    }
+
+
+@app.get("/v1/simulate")
+async def simulate_help():
+    return {
+        "method": "POST",
+        "endpoint": "/v1/simulate",
+        "hint": "Send user_token, review_history, and context as JSON.",
     }
 
 

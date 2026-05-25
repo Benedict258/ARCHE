@@ -190,3 +190,13 @@ async def simulate_review(payload: SimulateReviewRequest, http_request: Request)
             f"Reasoning: {out['behavioural_basis']}"
         )
     return out
+
+
+@router.get("/v1/simulate-review")
+@router.get("/api/v1/simulate-review")
+async def simulate_review_help():
+    return {
+        "method": "POST",
+        "endpoint": "/v1/simulate-review",
+        "hint": "Send JSON with user_token or user_persona, user_history, item or item_details, context, output_format.",
+    }
