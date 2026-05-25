@@ -5,6 +5,18 @@
   ],
   "routes": [
     {
+      "src": "/v1/(.*)",
+      "dest": "https://REPLACE_WITH_BACKEND_URL/v1/$1"
+    },
+    {
+      "src": "/docs",
+      "dest": "https://REPLACE_WITH_BACKEND_URL/docs"
+    },
+    {
+      "src": "/openapi.json",
+      "dest": "https://REPLACE_WITH_BACKEND_URL/openapi.json"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "https://REPLACE_WITH_BACKEND_URL/api/$1"
     }

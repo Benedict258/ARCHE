@@ -1,8 +1,9 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
+import { docsUrl } from '../lib/api'
 
 const Sidebar = ()=>{
-  const linkClass = ({isActive}) => isActive ? 'btn active' : 'btn'
+  const linkClass = ({isActive}) => isActive ? 'btn nav-btn active' : 'btn nav-btn'
   return (
     <aside className="sidebar" style={{width:240,padding:20,borderRight:'1px solid rgba(255,255,255,0.03)'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
@@ -15,13 +16,13 @@ const Sidebar = ()=>{
 
       <nav style={{display:'flex',flexDirection:'column',gap:8}}>
         <NavLink to="/" className={linkClass}>Home</NavLink>
-        <NavLink to="/app" className={linkClass}>Task A</NavLink>
-        <NavLink to="/app" className={linkClass}>Task B</NavLink>
+        <NavLink to="/task-a" className={linkClass}>Task A</NavLink>
+        <NavLink to="/task-b" className={linkClass}>Task B</NavLink>
         <NavLink to="/sdk" className={linkClass}>SDK</NavLink>
       </nav>
 
       <div style={{marginTop:20}}>
-        <a className="btn ghost" href="/docs" target="_blank" rel="noreferrer">Docs</a>
+        <a className="btn ghost" href={docsUrl} target="_blank" rel="noreferrer">Docs</a>
       </div>
     </aside>
   )
