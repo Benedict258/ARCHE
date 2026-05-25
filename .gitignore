@@ -97,3 +97,7 @@ frontend/src/pages/RecommendationDemo.tsx
 frontend/src/services/
 frontend/vite.config.ts
 frontend/vite.config.d.ts
+
+# Keep frontend runtime helpers tracked
+!frontend/src/lib/
+!frontend/src/lib/*.js
