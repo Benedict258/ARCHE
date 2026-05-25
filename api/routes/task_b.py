@@ -145,6 +145,7 @@ class ExplainResponse(BaseModel):
 
 
 @router.post("/v1/recommend")
+@router.post("/api/v1/recommend")
 async def recommend(payload: RecommendRequest, request: Request):
     """Task B: return personalized recommendations.
 
@@ -310,6 +311,7 @@ async def recommend(payload: RecommendRequest, request: Request):
 
 
 @router.post("/v1/explain", response_model=ExplainResponse)
+@router.post("/api/v1/explain", response_model=ExplainResponse)
 async def explain(payload: ExplainRequest, request: Request):
     from api.main import _ensure_app_state
     from orchestrator import LangGraphStyleOrchestrator

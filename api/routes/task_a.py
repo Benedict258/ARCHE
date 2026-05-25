@@ -109,6 +109,7 @@ def _normalise_context(context: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("/v1/simulate-review")
+@router.post("/api/v1/simulate-review")
 async def simulate_review(payload: SimulateReviewRequest, http_request: Request):
     """Task A: route request through orchestrator -> simulation agent -> review generation agent.
 

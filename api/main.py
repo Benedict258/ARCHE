@@ -59,6 +59,22 @@ app.include_router(task_a_router)
 app.include_router(task_b_router)
 
 
+def _route_index() -> dict[str, str]:
+    return {
+        "root": "/",
+        "health": "/v1/health",
+        "healthz": "/healthz",
+        "datasets_status": "/v1/datasets/status",
+        "ingest": "/v1/ingest",
+        "simulate": "/v1/simulate",
+        "simulate_review": "/v1/simulate-review",
+        "recommend": "/v1/recommend",
+        "explain": "/v1/explain",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+    }
+
+
 class IngestSignal(BaseModel):
     event_type: str = Field(min_length=1)
     item_token: str | None = None
@@ -415,6 +431,59 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/api/health")
+async def api_health():
+    return {"status": "ok"}
+
+
+@app.get("/api/healthz")
+async def api_healthz():
+    return {"status": "ok"}
+
+
+@app.get("/api/v1/health")
+async def api_v1_health():
+    return {"status": "ok"}
+
+
+@app.get("/api/v1/healthz")
+async def api_v1_healthz():
+    return {"status": "ok"}
+
+
+@app.get("/")
+async def root():
+    return {
+        "name": "ARCHE API",
+        "status": "ok",
+        "routes": _route_index(),
+    }
+
+
+@app.get("/api/")
+async def api_root():
+    return {
+        "name": "ARCHE API",
+        "status": "ok",
+        "routes": _route_index(),
+    }
+
+
+@app.get("/api/docs")
+async def api_docs():
+    return {"docs": "/docs", "openapi": "/openapi.json"}
+
+
+@app.get("/api/openapi.json")
+async def api_openapi():
+    return app.openapi()
+
+
 @app.get("/v1/datasets/status")
 async def dataset_status():
     _ensure_core_state()
@@ -427,6 +496,11 @@ async def dataset_status():
         "catalog_size": len(catalog),
         "sources": sorted({item.get("source", "unknown") for item in catalog}),
     }
+
+
+@app.get("/api/v1/datasets/status")
+async def api_dataset_status():
+    return await dataset_status()
 
 
 @app.post("/v1/ingest", response_model=IngestResponse)
@@ -460,6 +534,11 @@ async def ingest(payload: IngestRequest, request: Request):
     )
 
 
+@app.post("/api/v1/ingest", response_model=IngestResponse)
+async def api_ingest(payload: IngestRequest, request: Request):
+    return await ingest(payload, request)
+
+
 @app.post("/v1/simulate", response_model=SimulationResponse)
 async def simulate(payload: SimulateRequest, request: Request):
     _ensure_app_state()
@@ -472,6 +551,11 @@ async def simulate(payload: SimulateRequest, request: Request):
         memory_manager=request.app.state.memory_manager,
     )
     return _simulation_dict_to_response(anonymized_token or payload.user_token, payload.context, simulation)
+
+
+@app.post("/api/v1/simulate", response_model=SimulationResponse)
+async def api_simulate(payload: SimulateRequest, request: Request):
+    return await simulate(payload, request)
 
 
 if __name__ == "__main__":
