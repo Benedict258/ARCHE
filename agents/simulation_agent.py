@@ -30,7 +30,7 @@ class SimulationAgent(BaseAgent):
         self.llm = None
         self.llm_provider = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         self.logger = logging.getLogger("arche.llm")
         self._init_llm()
 
