@@ -105,7 +105,22 @@ class SimulationAgent(BaseAgent):
             return self._fallback_simulate(user_token, memory_payload, context)
         
         # Build LLM-driven behavior simulation prompt
-        system_prompt = """You are ARCHE's Behavior Simulation Engine.
+        history_texts = [str(r.get("review_text", "")) for r in (memory_payload.get("events") or []) if r.get("review_text")]
+        # Detect register using the scoring utility to enforce linguistic faithfulness
+        from .recommendation_scoring import detect_register_from_text
+        register = detect_register_from_text(" ".join(history_texts))
+        
+        time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
+        region_context = context.get("region") or context.get("region_tier") or "Lagos"
+
+        system_prompt = f"""[CRITICAL SYSTEM CONSTRAINT: VALUE FAITHFULNESS]
+You are ARCHE's Behavior Simulation Engine. 
+You are simulating a specific individual: {user_token}.
+Your simulation MUST match their linguistic and behavioral profile from history. 
+
+- TARGET REGISTER: {register}
+- DO NOT default to generic localized behavior or slang unless the user's specific history heavily utilizes it.
+- Ground the context ({time_context} in {region_context}) entirely within the constraints of this person's social class and profile. An elite user will perceive luxury and service through an upscale lens even in casual contexts.
 
 Your job is to simulate a user's BRAIN STATE given their interaction history and current context.
 You are not predicting behavior—you are simulating their cognitive state, decision-making process, 
@@ -116,10 +131,10 @@ Consider:
 2. Cognitive biases and decision heuristics evident in their history
 3. Current contextual state (time, device, environment)
 4. Risk tolerance, exploration readiness, purchase likelihood
-5. Language/communication register they use
+5. Language/communication register they use ({register})
 
 Output ONLY valid JSON matching this schema:
-{
+{{
   "current_intent": "exploratory_browsing | active_purchase | research | entertainment | social",
   "preference_cluster": "A | B | C | D | E",
   "top_affinities": ["category1", "category2", "category3"],
@@ -128,7 +143,7 @@ Output ONLY valid JSON matching this schema:
   "exploration_readiness": 0.0-1.0,
   "purchase_probability": 0.0-1.0,
   "behavioral_basis": "brief one-sentence reasoning"
-}"""
+}}"""
 
         user_prompt = f"""User interaction history:
 {json.dumps(memory_payload, indent=2)}
