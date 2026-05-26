@@ -6,7 +6,7 @@ from pathlib import Path
 from hashlib import sha256
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, List, Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -156,12 +156,13 @@ class SimulationResponse(BaseModel):
 
 class RecommendRequest(BaseModel):
     user_token: str | None = Field(default=None)
-    user_history: List[Dict[str, Any]] = Field(default_factory=list)
-    context: Dict[str, Any] = Field(default_factory=dict)
-    item_pool: List[Dict[str, Any]] | None = Field(default=None)
+    user_history: list[dict[str, Any]] = Field(default_factory=list)
+    context: dict[str, Any] = Field(default_factory=dict)
+    item_pool: list[dict[str, Any]] | None = Field(default=None)
     n: int = 10
     domain_filter: str | None = None
     enable_live_data: bool = False
+
 
 
 class Recommendation(BaseModel):

@@ -53,6 +53,7 @@ const AppPage = ({mode='taskB'})=>{
   const [textInput, setTextInput] = useState(isTaskA ? SAMPLE_TASK_A_TEXT : SAMPLE_TASK_B_TEXT)
   const [jsonInput, setJsonInput] = useState(isTaskA ? SAMPLE_TASK_A_JSON : SAMPLE_TASK_B_JSON)
   const [entries, setEntries] = useState({
+    // Task A (simulate-review) fields
     reviewText: '',
     previousItemName: 'Chicken Republic Lekki',
     previousItemCategory: 'fast_food',
@@ -63,6 +64,8 @@ const AppPage = ({mode='taskB'})=>{
     timeOfDay: 'evening',
     region: 'Lagos',
     forcedRating: '',
+
+    // Task B (recommend) fields
     timeBucket: 'evening',
     entryPoint: 'web',
     domainFilter: 'food',
@@ -70,6 +73,7 @@ const AppPage = ({mode='taskB'})=>{
     n: '5',
     recommendationId: ''
   })
+
 
   const pageTitle = isTaskA ? 'User Model (Task A)' : 'Recommendation (Task B)'
   const pageSummary = isTaskA

@@ -21,12 +21,12 @@ const TopNav = ()=>{
           <button className="btn ghost" onClick={goBack}>Back</button>
           <div className="topnav-brand">ARCHE</div>
           <nav className="topnav-nav">
-            <NavLink to="/" className={linkClass}>Dashboard</NavLink>
-            <NavLink to="/task-a" className={linkClass}>Task A</NavLink>
-            <NavLink to="/task-b" className={linkClass}>Task B</NavLink>
             <NavLink to="/sdk" className={linkClass}>SDK</NavLink>
+            <a className={linkClass({isActive:false})} href={docsUrl} target="_blank" rel="noreferrer">API</a>
+            <NavLink to="/task-b" className={linkClass}>Try Demo</NavLink>
           </nav>
         </div>
+
 
         <div className="topnav-right">
           <a className="btn" href={docsUrl} target="_blank" rel="noreferrer">Open API</a>
