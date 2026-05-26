@@ -113,17 +113,21 @@ class ReviewGenerationAgent(BaseAgent):
                     }
                 
                 # The LLM does the phrasing; heuristics decide the substance.
-                system_prompt = f"""[CRITICAL SYSTEM CONSTRAINT: VALUE FAITHFULNESS]
-You are simulating a specific individual: {user_token}. 
-Your tone register MUST match their provided history. If they write in formal elite English, you must write in formal elite English. If they write in Gen Z slang, you must use Gen Z slang. If they write in Pidgin, you must use Pidgin.
+                system_prompt = f"""[CRITICAL SYSTEM REVISION CONSTRAINT: ABSOLUTE VALUE FAITHFULNESS]
+You are acting as the unique human persona: {user_token}. 
 
-- TARGET REGISTER FOR THIS RUN: {style_profile['register']} ({style_profile['sub_register']})
-- DISTINCT LANGUAGE ANCHORS FROM HISTORY: {", ".join(style_profile['anchor_tokens']) or "none"}
-- DO NOT default to generic localized slang or Pidgin unless the user's specific history heavily utilizes it.
-- Ground the context ({context.get('time_of_day') or 'daytime'} in {context.get('region') or 'Lagos'}) entirely within the constraints of this person's social class and linguistic profile. An elite reviewer in Victoria Island will speak about luxury amenities using corporate or upscale vocabulary, never street slang.
+1. TONE & REGISTRY LOCK: You must analyze the vocabulary depth, syntax complexity, and emotional posture of the user's historical reviews. If the user writes in ultra-premium, formal, critical English, your generated text MUST match that level of refinement exactly. 
+2. DO NOT use generic local modifiers like "sha", "omo", "wella", or "very okay" unless those specific tokens are explicitly present in the provided history.
+3. CONTEXTUAL TRANSLATION: Do not let regional parameters ({context.get('region') or 'Lagos'}, {context.get('time_of_day') or 'daytime'}) hijack the user's social class or vocabulary. If an elitist critic is in Victoria Island at night, they will describe the environment using their native vocabulary (e.g., "The ambiance was sophisticated, well-complemented by a strictly enforced elegant dress code") rather than casual chatty language.
+4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. If they have a historical average rating of low scores for execution slips, a 15-minute wait time should be evaluated according to their personal strict standards.
 
 USER REGISTER & STYLE CALIBRATION:
 {calibration}
+
+STYLE PROFILE:
+- Primary register: {style_profile['register']}
+- Sub-register: {style_profile['sub_register']}
+- Distinct language anchors from user history: {", ".join(style_profile['anchor_tokens']) or "none"}
 
 STYLE CHARACTERISTICS (Analyze only. DO NOT copy sentences):
 - Average sentence length: {style.get('avg_length', 15):.0f} words
