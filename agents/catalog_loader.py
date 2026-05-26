@@ -68,6 +68,27 @@ def load_catalog(refresh: bool = False) -> dict[str, dict[str, Any]]:
                 catalog[item_id] = item
     
     _CATALOG_CACHE = catalog
+    # If processed catalog is empty, provide a small demo fallback so the API
+    # can return recommendations even when datasets are not present in the repo.
+    if not catalog:
+        demo_items = [
+            {"item_id": f"demo_food_{i}", "item_name": name, "item_category": cat, "price_tier": "mid", "avg_rating": 4.0, "review_count": 10}
+            for i, (name, cat) in enumerate([
+                ("Suya Spot", "food"),
+                ("Jollof House", "nigerian_cuisine"),
+                ("Palmwine Diner", "food"),
+                ("Umu Okon", "nigerian_cuisine"),
+                ("Breakfast Corner", "breakfast"),
+                ("Evening Eats", "food"),
+                ("Fine Dine Lagos", "fine_dining"),
+                ("Local Grill", "fast_food"),
+                ("Cozy Cafe", "cafe"),
+                ("Market Bites", "street_food"),
+            ], start=1)
+        ]
+        for item in demo_items:
+            catalog[item["item_id"]] = item
+        _CATALOG_CACHE = catalog
     return catalog
 
 

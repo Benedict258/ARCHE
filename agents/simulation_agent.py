@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
 from typing import Any
 
 import httpx
@@ -29,6 +31,7 @@ class SimulationAgent(BaseAgent):
         self.llm_provider = None
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+        self.logger = logging.getLogger("arche.llm")
         self._init_llm()
 
     def _init_llm(self):
@@ -137,14 +140,22 @@ Simulate this user's brain state. What is their current intent?
 What are they ready to explore? What will they reject?
 Return only JSON."""
 
+        started = time.perf_counter()
         try:
             if self.llm_provider == "anthropic":
+                self.logger.info(
+                    "llm_call_start agent=simulation operation=simulate_brain_state provider=anthropic model=claude-3-5-sonnet-20241022"
+                )
                 response = await self.llm.ainvoke([
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ])
                 content = response.content
             elif self.llm_provider == "groq":
+                self.logger.info(
+                    "llm_call_start agent=simulation operation=simulate_brain_state provider=groq model=%s",
+                    self.groq_model,
+                )
                 content = await self._simulate_with_groq(system_prompt=system_prompt, user_prompt=user_prompt)
             else:
                 return self._fallback_simulate(user_token, memory_payload, context)
@@ -158,10 +169,26 @@ Return only JSON."""
             else:
                 snapshot = content
 
+            elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+            self.logger.info(
+                "llm_call_success agent=simulation operation=simulate_brain_state provider=%s model=%s latency_ms=%s",
+                self.llm_provider or "unknown",
+                self.groq_model if self.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
+                elapsed_ms,
+            )
+
             return self._normalize_snapshot(snapshot)
 
         except Exception as e:
             # Fallback to heuristic if LLM fails
+            elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+            self.logger.exception(
+                "llm_call_error agent=simulation operation=simulate_brain_state provider=%s model=%s latency_ms=%s error=%s",
+                self.llm_provider or "unknown",
+                self.groq_model if self.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
+                elapsed_ms,
+                str(e),
+            )
             print(f"LLM simulation failed: {e}, falling back to heuristic")
             return self._fallback_simulate(user_token, memory_payload, context)
 
@@ -174,17 +201,65 @@ Return only JSON."""
         if not self.llm:
             raise RuntimeError("No LLM provider configured")
 
+        started = time.perf_counter()
+        provider = self.llm_provider or "unknown"
+        model = self.groq_model if self.llm_provider == "groq" else "claude-3-5-sonnet-20241022"
+        self.logger.info(
+            "llm_call_start agent=simulation operation=call_llm provider=%s model=%s temperature=%s",
+            provider,
+            model,
+            temperature,
+        )
+
         # Anthropic via langchain wrapper
         if self.llm_provider == "anthropic":
-            response = await self.llm.ainvoke([
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ])
-            return getattr(response, "content", str(response))
+            try:
+                response = await self.llm.ainvoke([
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ])
+                content = getattr(response, "content", str(response))
+                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                self.logger.info(
+                    "llm_call_success agent=simulation operation=call_llm provider=%s model=%s latency_ms=%s",
+                    provider,
+                    model,
+                    elapsed_ms,
+                )
+                return content
+            except Exception as exc:
+                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                self.logger.exception(
+                    "llm_call_error agent=simulation operation=call_llm provider=%s model=%s latency_ms=%s error=%s",
+                    provider,
+                    model,
+                    elapsed_ms,
+                    str(exc),
+                )
+                raise
 
         # Groq direct HTTP call
         if self.llm_provider == "groq":
-            return await self._call_groq(system_prompt=system_prompt, user_prompt=user_prompt, temperature=temperature)
+            try:
+                content = await self._call_groq(system_prompt=system_prompt, user_prompt=user_prompt, temperature=temperature)
+                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                self.logger.info(
+                    "llm_call_success agent=simulation operation=call_llm provider=%s model=%s latency_ms=%s",
+                    provider,
+                    model,
+                    elapsed_ms,
+                )
+                return content
+            except Exception as exc:
+                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                self.logger.exception(
+                    "llm_call_error agent=simulation operation=call_llm provider=%s model=%s latency_ms=%s error=%s",
+                    provider,
+                    model,
+                    elapsed_ms,
+                    str(exc),
+                )
+                raise
 
         raise RuntimeError("Unsupported LLM provider")
 

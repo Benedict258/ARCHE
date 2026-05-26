@@ -53,6 +53,7 @@ class RecommendRequest(BaseModel):
     )
 
     user_token: str | None = Field(default=None, description="Optional user token if not using user_persona.")
+    user_history: list[dict[str, Any]] = Field(default_factory=list, description="Alias for inline review history - accepted at top-level for convenience.")
     user_persona: UserPersona | None = Field(
         default=None,
         description="Preferred judge-friendly nesting for user identity and review history.",
@@ -203,8 +204,13 @@ async def recommend(payload: RecommendRequest, request: Request):
         catalog = get_catalog_list()
 
     live_candidates: list[dict[str, Any]] = []
+    fetched_live_results: list[Any] = []
     live_search_query = None
     live_search_source = None
+    live_search_provider = None
+    llm_used_for_live_query = False
+    llm_provider_for_live_query = None
+    llm_model_for_live_query = None
     if payload.enable_live_data and live_search.available():
         plan = await live_search.build_query(
             category=domain_filter or context.get("entry_point") or "general",
@@ -214,8 +220,12 @@ async def recommend(payload: RecommendRequest, request: Request):
         )
         live_search_query = plan.get("query")
         live_search_source = plan.get("source")
+        llm_used_for_live_query = bool(plan.get("source") == "llm")
+        llm_provider_for_live_query = getattr(live_search.llm_agent, "llm_provider", None)
+        llm_model_for_live_query = getattr(live_search.llm_agent, "groq_model", None) if llm_provider_for_live_query == "groq" else ("claude-3-5-sonnet-20241022" if llm_provider_for_live_query else None)
         try:
             fetched = await live_search.search(live_search_query or "", num_results=payload.live_results_limit)
+            fetched_live_results = fetched
             live_candidates = [
                 {
                     "item_id": item.item_id,
@@ -230,11 +240,13 @@ async def recommend(payload: RecommendRequest, request: Request):
                 }
                 for item in fetched
             ]
+            if fetched:
+                live_search_provider = fetched[0].source
         except Exception:
             live_candidates = []
 
     if live_candidates:
-        catalog = live_search.merge_with_local_catalog(live_candidates, catalog, limit=max(payload.n, payload.live_results_limit, 10))
+        catalog = live_search.merge_with_local_catalog(fetched_live_results, catalog, limit=max(payload.n, payload.live_results_limit, 10))
 
 
     ranked_catalog = rank_catalog_against_simulation(simulation, catalog, n=n)
@@ -293,6 +305,12 @@ async def recommend(payload: RecommendRequest, request: Request):
         "live_data_used": bool(live_candidates),
         "live_search_query": live_search_query,
         "live_search_source": live_search_source,
+        "live_search_provider": live_search_provider,
+        "llm_instrumentation": {
+            "live_query_llm_used": llm_used_for_live_query,
+            "provider": llm_provider_for_live_query,
+            "model": llm_model_for_live_query,
+        },
         "_internal": recs,
     }
 

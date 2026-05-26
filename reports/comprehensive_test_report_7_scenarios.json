@@ -1,0 +1,659 @@
+{
+  "generated_at": "2026-05-26T09:12:47.377458+00:00",
+  "base_url": "http://localhost:8000",
+  "scenarios": [
+    {
+      "id": "S1",
+      "name": "Task A Formal Persona",
+      "endpoint": "/v1/simulate-review",
+      "status": 200,
+      "checks": {
+        "has_llm_instrumentation": true,
+        "has_behavioural_basis": true,
+        "no_atomic_copy_leak": true
+      },
+      "response": {
+        "predicted_rating": 4,
+        "generated_review": "Half of a Yellow Sun presents as solid across african_literature offerings. In the context of afternoon and given the Lagos Island location, this item demonstrates consistent value. author is Chimamanda Ngozi Adichie. On balance, I would rate this favorably. The main details are author is Chimamanda Ngozi Adichie.",
+        "tone_confidence": 0.59,
+        "behavioural_basis": "Detected formal_english register with 2 prior reviews; simulation basis Heuristic fallback: 0 events, avg engagement 0.00; top affinities ; context afternoon / Lagos Island; calibration: Use clear formal English with a neutral, thoughtful tone.",
+        "llm_instrumentation": {
+          "used": false,
+          "provider": null,
+          "model": null
+        },
+        "confidence": 0.59,
+        "reasoning": "Detected formal_english register with 2 prior reviews; simulation basis Heuristic fallback: 0 events, avg engagement 0.00; top affinities ; context afternoon / Lagos Island; calibration: Use clear formal English with a neutral, thoughtful tone.",
+        "_internal": {
+          "predicted_rating": 4,
+          "generated_review": "Half of a Yellow Sun presents as solid across african_literature offerings. In the context of afternoon and given the Lagos Island location, this item demonstrates consistent value. author is Chimamanda Ngozi Adichie. On balance, I would rate this favorably. The main details are author is Chimamanda Ngozi Adichie.",
+          "tone_confidence": 0.59,
+          "behavioural_basis": "Detected formal_english register with 2 prior reviews; simulation basis Heuristic fallback: 0 events, avg engagement 0.00; top affinities ; context afternoon / Lagos Island; calibration: Use clear formal English with a neutral, thoughtful tone.",
+          "user_token": "s1_formal",
+          "llm_instrumentation": {
+            "used": false,
+            "provider": null,
+            "model": null
+          }
+        }
+      }
+    },
+    {
+      "id": "S2",
+      "name": "Task A Mixed Pidgin Persona",
+      "endpoint": "/v1/simulate-review",
+      "status": 200,
+      "checks": {
+        "has_llm_instrumentation": true,
+        "context_reflected": true,
+        "no_mr_biggs_copy_leak": true
+      },
+      "response": {
+        "predicted_rating": 4,
+        "generated_review": "The Place Restaurant Lekki presents as solid across food offerings. In the context of evening and given the Lagos Mainland location, this item demonstrates consistent value. cuisine is Nigerian. On balance, I would rate this favorably. The main details are cuisine is Nigerian.",
+        "tone_confidence": 0.59,
+        "behavioural_basis": "Detected formal_english register with 2 prior reviews; simulation basis Heuristic fallback: 0 events, avg engagement 0.00; top affinities ; context evening / Lagos Mainland; calibration: Use clear formal English with a neutral, thoughtful tone.",
+        "llm_instrumentation": {
+          "used": false,
+          "provider": null,
+          "model": null
+        },
+        "confidence": 0.59,
+        "reasoning": "Detected formal_english register with 2 prior reviews; simulation basis Heuristic fallback: 0 events, avg engagement 0.00; top affinities ; context evening / Lagos Mainland; calibration: Use clear formal English with a neutral, thoughtful tone.",
+        "_internal": {
+          "predicted_rating": 4,
+          "generated_review": "The Place Restaurant Lekki presents as solid across food offerings. In the context of evening and given the Lagos Mainland location, this item demonstrates consistent value. cuisine is Nigerian. On balance, I would rate this favorably. The main details are cuisine is Nigerian.",
+          "tone_confidence": 0.59,
+          "behavioural_basis": "Detected formal_english register with 2 prior reviews; simulation basis Heuristic fallback: 0 events, avg engagement 0.00; top affinities ; context evening / Lagos Mainland; calibration: Use clear formal English with a neutral, thoughtful tone.",
+          "user_token": "s2_pidgin",
+          "llm_instrumentation": {
+            "used": false,
+            "provider": null,
+            "model": null
+          }
+        }
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Task B Cold Start No Live",
+      "endpoint": "/v1/recommend",
+      "status": 200,
+      "checks": {
+        "cold_start_handled": true,
+        "live_data_used_false": true,
+        "has_explanations": true
+      },
+      "response": {
+        "recommendations": [
+          {
+            "recommendation_id": "rec_1_s3_cold",
+            "item_id": "demo_food_1",
+            "rank": 1,
+            "item_name": "Suya Spot",
+            "category": "food",
+            "confidence": 0.7,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_2_s3_cold",
+            "item_id": "demo_food_3",
+            "rank": 2,
+            "item_name": "Palmwine Diner",
+            "category": "food",
+            "confidence": 0.7,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_3_s3_cold",
+            "item_id": "demo_food_6",
+            "rank": 3,
+            "item_name": "Evening Eats",
+            "category": "food",
+            "confidence": 0.7,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          }
+        ],
+        "diversity_score": 0.0,
+        "cold_start_handled": true,
+        "exploration_ratio": 0.0,
+        "live_data_used": false,
+        "live_search_query": null,
+        "live_search_source": null,
+        "live_search_provider": null,
+        "llm_instrumentation": {
+          "live_query_llm_used": false,
+          "provider": null,
+          "model": null
+        },
+        "_internal": {
+          "user_token": "s3_cold",
+          "simulation_basis": "cold_start_prior",
+          "recommendations": [
+            {
+              "recommendation_id": "rec_1_s3_cold",
+              "item_id": "demo_food_1",
+              "item_name": "Suya Spot",
+              "item_category": "food",
+              "confidence": 0.7,
+              "recommendation_type": "precision",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            },
+            {
+              "recommendation_id": "rec_2_s3_cold",
+              "item_id": "demo_food_3",
+              "item_name": "Palmwine Diner",
+              "item_category": "food",
+              "confidence": 0.7,
+              "recommendation_type": "precision",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            },
+            {
+              "recommendation_id": "rec_3_s3_cold",
+              "item_id": "demo_food_6",
+              "item_name": "Evening Eats",
+              "item_category": "food",
+              "confidence": 0.7,
+              "recommendation_type": "precision",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "S4",
+      "name": "Task B Personalized No Live",
+      "endpoint": "/v1/recommend",
+      "status": 200,
+      "checks": {
+        "cold_start_handled_false": true,
+        "live_data_used_false": true,
+        "has_precision_items": true
+      },
+      "response": {
+        "recommendations": [
+          {
+            "recommendation_id": "rec_1_s4_personalized",
+            "item_id": "demo_food_1",
+            "rank": 1,
+            "item_name": "Suya Spot",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_2_s4_personalized",
+            "item_id": "demo_food_3",
+            "rank": 2,
+            "item_name": "Palmwine Diner",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_3_s4_personalized",
+            "item_id": "demo_food_6",
+            "rank": 3,
+            "item_name": "Evening Eats",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          }
+        ],
+        "diversity_score": 0.0,
+        "cold_start_handled": false,
+        "exploration_ratio": 0.0,
+        "live_data_used": false,
+        "live_search_query": null,
+        "live_search_source": null,
+        "live_search_provider": null,
+        "llm_instrumentation": {
+          "live_query_llm_used": false,
+          "provider": null,
+          "model": null
+        },
+        "_internal": {
+          "user_token": "s4_personalized",
+          "simulation_basis": "historical_memory:3",
+          "recommendations": [
+            {
+              "recommendation_id": "rec_1_s4_personalized",
+              "item_id": "demo_food_1",
+              "item_name": "Suya Spot",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "precision",
+              "exploration_factor": "inline_history",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            },
+            {
+              "recommendation_id": "rec_2_s4_personalized",
+              "item_id": "demo_food_3",
+              "item_name": "Palmwine Diner",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "precision",
+              "exploration_factor": "inline_history",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            },
+            {
+              "recommendation_id": "rec_3_s4_personalized",
+              "item_id": "demo_food_6",
+              "item_name": "Evening Eats",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "precision",
+              "exploration_factor": "inline_history",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "S5",
+      "name": "Task B Personalized With Live Data",
+      "endpoint": "/v1/recommend",
+      "status": 200,
+      "checks": {
+        "live_data_used_true": true,
+        "has_live_provider": true,
+        "has_llm_instrumentation": true
+      },
+      "response": {
+        "recommendations": [
+          {
+            "recommendation_id": "rec_1_s5_live",
+            "item_id": "live:db5b36c441a8641c",
+            "rank": 1,
+            "item_name": "The Best Places to Eat in San Antonio | Top Restaurants",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_2_s5_live",
+            "item_id": "live:3c1002e2528a9ae7",
+            "rank": 2,
+            "item_name": "What restaurants are must try if you're going for the San Antonio ...",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_3_s5_live",
+            "item_id": "live:44fdbb7a9fc9c82c",
+            "rank": 3,
+            "item_name": "THE 10 BEST Restaurants in San Antonio (Updated May 2026)",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_4_s5_live",
+            "item_id": "demo_food_1",
+            "rank": 4,
+            "item_name": "Suya Spot",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "Related to food, which connects to your strongest preferences. Worth exploring based on your profile.",
+            "explanation": "Related to food, which connects to your strongest preferences. Worth exploring based on your profile.",
+            "recommendation_type": "adjacent_exploration"
+          },
+          {
+            "recommendation_id": "rec_5_s5_live",
+            "item_id": "demo_food_3",
+            "rank": 5,
+            "item_name": "Palmwine Diner",
+            "category": "food",
+            "confidence": 0.8,
+            "reasoning": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range.",
+            "explanation": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range.",
+            "recommendation_type": "discovery"
+          }
+        ],
+        "diversity_score": 0.4,
+        "cold_start_handled": false,
+        "exploration_ratio": 0.4,
+        "live_data_used": true,
+        "live_search_query": "best food in urban",
+        "live_search_source": "fallback",
+        "live_search_provider": "serper",
+        "llm_instrumentation": {
+          "live_query_llm_used": false,
+          "provider": "groq",
+          "model": "llama-3.1-70b-versatile"
+        },
+        "_internal": {
+          "user_token": "s5_live",
+          "simulation_basis": "historical_memory:2",
+          "recommendations": [
+            {
+              "recommendation_id": "rec_1_s5_live",
+              "item_id": "live:db5b36c441a8641c",
+              "item_name": "The Best Places to Eat in San Antonio | Top Restaurants",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "precision",
+              "exploration_factor": "inline_history",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "serper"
+            },
+            {
+              "recommendation_id": "rec_2_s5_live",
+              "item_id": "live:3c1002e2528a9ae7",
+              "item_name": "What restaurants are must try if you're going for the San Antonio ...",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "precision",
+              "exploration_factor": "inline_history",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "serper"
+            },
+            {
+              "recommendation_id": "rec_3_s5_live",
+              "item_id": "live:44fdbb7a9fc9c82c",
+              "item_name": "THE 10 BEST Restaurants in San Antonio (Updated May 2026)",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "precision",
+              "exploration_factor": "inline_history",
+              "explanation": "Matches your interest in food. Based on your history, this aligns with items you rated highly.",
+              "source": "serper"
+            },
+            {
+              "recommendation_id": "rec_4_s5_live",
+              "item_id": "demo_food_1",
+              "item_name": "Suya Spot",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "adjacent_exploration",
+              "exploration_factor": "inline_history",
+              "explanation": "Related to food, which connects to your strongest preferences. Worth exploring based on your profile.",
+              "source": "local_catalog"
+            },
+            {
+              "recommendation_id": "rec_5_s5_live",
+              "item_id": "demo_food_3",
+              "item_name": "Palmwine Diner",
+              "item_category": "food",
+              "confidence": 0.8,
+              "recommendation_type": "discovery",
+              "exploration_factor": "inline_history",
+              "explanation": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range.",
+              "source": "local_catalog"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "S6",
+      "name": "Task B Manual Live Query Override",
+      "endpoint": "/v1/recommend",
+      "status": 200,
+      "checks": {
+        "manual_source": true,
+        "query_echoed": true,
+        "live_data_used": true
+      },
+      "response": {
+        "recommendations": [
+          {
+            "recommendation_id": "rec_1_s6_manual_query",
+            "item_id": "demo_food_5",
+            "rank": 1,
+            "item_name": "Breakfast Corner",
+            "category": "breakfast",
+            "confidence": 0.7,
+            "reasoning": "Matches your interest in breakfast. Based on your history, this aligns with items you rated highly.",
+            "explanation": "Matches your interest in breakfast. Based on your history, this aligns with items you rated highly.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_2_s6_manual_query",
+            "item_id": "live:19e7076b26d2398d",
+            "rank": 2,
+            "item_name": "Editor's Choice: 20 Most Anticipated Books of 2026",
+            "category": "books",
+            "confidence": 0.25,
+            "reasoning": "Ranked highly for books category. Consistent with your demonstrated preferences.",
+            "explanation": "Ranked highly for books category. Consistent with your demonstrated preferences.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_3_s6_manual_query",
+            "item_id": "live:4c359d1677300590",
+            "rank": 3,
+            "item_name": "10 Writers Remaking African Literature in 2026",
+            "category": "books",
+            "confidence": 0.25,
+            "reasoning": "Ranked highly for books category. Consistent with your demonstrated preferences.",
+            "explanation": "Ranked highly for books category. Consistent with your demonstrated preferences.",
+            "recommendation_type": "precision"
+          },
+          {
+            "recommendation_id": "rec_4_s6_manual_query",
+            "item_id": "live:4c4ef1ac4a4c4c93",
+            "rank": 4,
+            "item_name": "African Literature read-along 2026\ud83d\udcda Here is a selection of ...",
+            "category": "books",
+            "confidence": 0.25,
+            "reasoning": "Related to books, which connects to your strongest preferences. Worth exploring based on your profile.",
+            "explanation": "Related to books, which connects to your strongest preferences. Worth exploring based on your profile.",
+            "recommendation_type": "adjacent_exploration"
+          },
+          {
+            "recommendation_id": "rec_5_s6_manual_query",
+            "item_id": "demo_food_1",
+            "rank": 5,
+            "item_name": "Suya Spot",
+            "category": "food",
+            "confidence": 0.25,
+            "reasoning": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range.",
+            "explanation": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range.",
+            "recommendation_type": "discovery"
+          }
+        ],
+        "diversity_score": 0.4,
+        "cold_start_handled": true,
+        "exploration_ratio": 0.4,
+        "live_data_used": true,
+        "live_search_query": "best african fiction books 2026",
+        "live_search_source": "manual",
+        "live_search_provider": "serper",
+        "llm_instrumentation": {
+          "live_query_llm_used": false,
+          "provider": "groq",
+          "model": "llama-3.1-70b-versatile"
+        },
+        "_internal": {
+          "user_token": "s6_manual_query",
+          "simulation_basis": "cold_start_prior",
+          "recommendations": [
+            {
+              "recommendation_id": "rec_1_s6_manual_query",
+              "item_id": "demo_food_5",
+              "item_name": "Breakfast Corner",
+              "item_category": "breakfast",
+              "confidence": 0.7,
+              "recommendation_type": "precision",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Matches your interest in breakfast. Based on your history, this aligns with items you rated highly.",
+              "source": "local_catalog"
+            },
+            {
+              "recommendation_id": "rec_2_s6_manual_query",
+              "item_id": "live:19e7076b26d2398d",
+              "item_name": "Editor's Choice: 20 Most Anticipated Books of 2026",
+              "item_category": "books",
+              "confidence": 0.25,
+              "recommendation_type": "precision",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Ranked highly for books category. Consistent with your demonstrated preferences.",
+              "source": "serper"
+            },
+            {
+              "recommendation_id": "rec_3_s6_manual_query",
+              "item_id": "live:4c359d1677300590",
+              "item_name": "10 Writers Remaking African Literature in 2026",
+              "item_category": "books",
+              "confidence": 0.25,
+              "recommendation_type": "precision",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Ranked highly for books category. Consistent with your demonstrated preferences.",
+              "source": "serper"
+            },
+            {
+              "recommendation_id": "rec_4_s6_manual_query",
+              "item_id": "live:4c4ef1ac4a4c4c93",
+              "item_name": "African Literature read-along 2026\ud83d\udcda Here is a selection of ...",
+              "item_category": "books",
+              "confidence": 0.25,
+              "recommendation_type": "adjacent_exploration",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "Related to books, which connects to your strongest preferences. Worth exploring based on your profile.",
+              "source": "serper"
+            },
+            {
+              "recommendation_id": "rec_5_s6_manual_query",
+              "item_id": "demo_food_1",
+              "item_name": "Suya Spot",
+              "item_category": "food",
+              "confidence": 0.25,
+              "recommendation_type": "discovery",
+              "exploration_factor": "cold_start_prior",
+              "explanation": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range.",
+              "source": "local_catalog"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "S7",
+      "name": "Task B Explain Trace",
+      "endpoint": "/v1/explain",
+      "status": 200,
+      "checks": {
+        "has_trace": true,
+        "has_recommendation": true
+      },
+      "response": {
+        "user_token": "s6_manual_query",
+        "recommendation_id": "rec_1_s6_manual_query",
+        "simulation": {
+          "user_token": "s6_manual_query",
+          "simulated_at": "2026-05-26T09:12:47.246100Z",
+          "behavioral_snapshot": {
+            "current_intent": "exploratory_browsing",
+            "preference_cluster": "new_user",
+            "top_affinities": [
+              "new_user",
+              "exploration",
+              "general_interest"
+            ],
+            "rejection_signals": [
+              "no_recent_history"
+            ],
+            "engagement_mode": "scanning",
+            "exploration_readiness": 0.7,
+            "purchase_probability": 0.25
+          },
+          "context_modifiers": {
+            "time_boosts": [],
+            "suppressed_categories": [],
+            "active_context": "time-unknown, device-unknown, entry-unknown"
+          },
+          "cold_start_confidence": 0.4,
+          "simulation_basis": "cold_start_prior",
+          "memory_sources": [
+            "context_signal",
+            "cohort_prior"
+          ]
+        },
+        "recommendation": {
+          "recommendation_id": "rec_1_s6_manual_query",
+          "item_id": "demo_food_5",
+          "item_name": "Breakfast Corner",
+          "item_category": "breakfast",
+          "confidence": 0.7,
+          "recommendation_type": "precision",
+          "exploration_factor": "cold_start_prior",
+          "explanation": "Matches your interest in breakfast. Based on your history, this aligns with items you rated highly."
+        },
+        "alternatives_considered": [
+          {
+            "recommendation_id": "rec_2_s6_manual_query",
+            "item_id": "live:19e7076b26d2398d",
+            "item_name": "Editor's Choice: 20 Most Anticipated Books of 2026",
+            "item_category": "books",
+            "confidence": 0.25,
+            "recommendation_type": "precision",
+            "exploration_factor": "cold_start_prior",
+            "explanation": "Ranked highly for books category. Consistent with your demonstrated preferences."
+          },
+          {
+            "recommendation_id": "rec_3_s6_manual_query",
+            "item_id": "live:4c359d1677300590",
+            "item_name": "10 Writers Remaking African Literature in 2026",
+            "item_category": "books",
+            "confidence": 0.25,
+            "recommendation_type": "precision",
+            "exploration_factor": "cold_start_prior",
+            "explanation": "Ranked highly for books category. Consistent with your demonstrated preferences."
+          },
+          {
+            "recommendation_id": "rec_4_s6_manual_query",
+            "item_id": "live:4c4ef1ac4a4c4c93",
+            "item_name": "African Literature read-along 2026\ud83d\udcda Here is a selection of ...",
+            "item_category": "books",
+            "confidence": 0.25,
+            "recommendation_type": "adjacent_exploration",
+            "exploration_factor": "cold_start_prior",
+            "explanation": "Related to books, which connects to your strongest preferences. Worth exploring based on your profile."
+          },
+          {
+            "recommendation_id": "rec_5_s6_manual_query",
+            "item_id": "demo_food_1",
+            "item_name": "Suya Spot",
+            "item_category": "food",
+            "confidence": 0.25,
+            "recommendation_type": "discovery",
+            "exploration_factor": "cold_start_prior",
+            "explanation": "New discovery in food, based on your behavioral patterns. Price tier aligns with your typical range."
+          }
+        ],
+        "trace": "High affinity match: breakfast aligns with user's top interests. Time unknown + device unknown boost. Core precision recommendation\u2014high confidence."
+      }
+    }
+  ]
+}

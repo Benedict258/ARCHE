@@ -6,19 +6,19 @@
   "routes": [
     {
       "src": "/v1/(.*)",
-      "dest": "https://REPLACE_WITH_BACKEND_URL/v1/$1"
+      "dest": "https://arche-webapp-api.onrender.com/v1/$1"
     },
     {
       "src": "/docs",
-      "dest": "https://REPLACE_WITH_BACKEND_URL/docs"
+      "dest": "https://arche-webapp-api.onrender.com/docs"
     },
     {
       "src": "/openapi.json",
-      "dest": "https://REPLACE_WITH_BACKEND_URL/openapi.json"
+      "dest": "https://arche-webapp-api.onrender.com/openapi.json"
     },
     {
       "src": "/api/(.*)",
-      "dest": "https://REPLACE_WITH_BACKEND_URL/api/$1"
+      "dest": "https://arche-webapp-api.onrender.com/api/$1"
     }
   ]
 }

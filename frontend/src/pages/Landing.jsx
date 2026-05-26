@@ -1,102 +1,135 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import TopNav from '../components/TopNav'
-import Sidebar from '../components/Sidebar'
-import Icon from '../components/Icon'
 import { docsUrl } from '../lib/api'
 
-const Landing = ()=>{
+const Landing = () => {
   const nav = useNavigate()
 
   return (
-    <div className="app-shell" style={{display:'flex',minHeight:'100vh'}}>
-      <Sidebar />
-      <div className="main-shell" style={{flex:1}}>
-        <TopNav />
+    <div className="landing-full">
+      <header className="landing-top">
+        <div className="landing-top-inner">
+          <div className="landing-brand">ARCHE</div>
+          <nav className="landing-nav">
+            <button className="btn ghost" onClick={()=>nav('/sdk')}>SDK</button>
+            <a className="btn ghost" href={docsUrl} target="_blank" rel="noreferrer">API</a>
+            <button className="btn" onClick={()=>nav('/task-b')}>Try Demo</button>
+          </nav>
+        </div>
+      </header>
 
-        <main className="page landing-page">
-          <section className="hero landing-hero">
-            <div className="landing-hero-copy">
-              <h1 className="title">ARCHE</h1>
-              <p className="subtitle">Behavioral intelligence platform for simulated user modeling and explainable recommendation workflows.</p>
-              <p className="landing-lead">ARCHE ingests messy user intent, translates it into structured decision signals, and returns deterministic outputs for both product simulation and recommendation ranking.</p>
-              <div className="core-actions">
-                <button className="btn primary" onClick={()=>nav('/task-a')}>User Model (Task A)</button>
-                <button className="btn primary" onClick={()=>nav('/task-b')}>Recommendation (Task B)</button>
-                <a className="btn ghost" href={docsUrl} target="_blank" rel="noreferrer">Open API-Swagger</a>
-                <button className="btn" onClick={()=>nav('/sdk')}>SDK</button>
+      <main>
+        <section className="landing-screen screen-hero">
+          <div className="hero-inner">
+            <h1 className="hero-title">ARCHE</h1>
+            <p className="hero-sub">Behavioral intelligence for simulated user models and explainable recommendations.</p>
+            <p className="hero-lead">Turn messy user signals into deterministic, explainable outputs for testing and production.</p>
+            <div className="hero-ctas">
+              <button className="btn primary" onClick={() => nav('/task-a')}>Run User Model (Task A)</button>
+              <button className="btn primary" onClick={() => nav('/task-b')}>Run Recommendation (Task B)</button>
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-screen screen-simulation">
+          <div className="simulation-inner card">
+            <h2>Behavioral Simulation: How ARCHE Works</h2>
+            <p>At the core of ARCHE is a <strong>behavioral simulation engine</strong> that learns a user's decision-making patterns from their review history.</p>
+            <div className="sim-steps">
+              <div className="sim-step">
+                <div className="step-number">1</div>
+                <div className="step-content">
+                  <h4>Extract Behavioral Patterns</h4>
+                  <p>From your review history, we detect your <strong>decision drivers</strong>: Are you price-conscious? Quality-first? Value-seeking? Do you write formally or in Nigerian Pidgin?</p>
+                </div>
+              </div>
+              <div className="sim-step">
+                <div className="step-number">2</div>
+                <div className="step-content">
+                  <h4>Build a Deterministic Snapshot</h4>
+                  <p>Your patterns become a <strong>behavioral snapshot</strong>—a structured representation of your tastes. Not a vector; not a black box. Every decision is traceable.</p>
+                </div>
+              </div>
+              <div className="sim-step">
+                <div className="step-number">3</div>
+                <div className="step-content">
+                  <h4>Apply Context & Reasoning</h4>
+                  <p>When you review a new item or ask for recommendations, we inject <strong>context signals</strong> (time of day, location, occasion) and reason forward using your behavioral profile.</p>
+                </div>
+              </div>
+              <div className="sim-step">
+                <div className="step-number">4</div>
+                <div className="step-content">
+                  <h4>Generate Explainable Output</h4>
+                  <p>Every prediction includes a <strong>basis statement</strong> explaining why—"Matches your interest in X" or "Price tier aligns with your typical range"—so you know exactly how the system arrived at its answer.</p>
+                </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div className="card landing-highlight">
-              <div className="hero-big">How ARCHE Works</div>
-              <ol className="how-list">
-                <li>
-                  <strong>Input Layer</strong>
-                  <span>Accepts normal text, JSON, or entry form payloads.</span>
-                </li>
-                <li>
-                  <strong>Translation Layer</strong>
-                  <span>Repairs or transforms input into request-safe schema payloads.</span>
-                </li>
-                <li>
-                  <strong>Reasoning Layer</strong>
-                  <span>Runs simulation and recommendation logic using contextual memory.</span>
-                </li>
-                <li>
-                  <strong>Output Layer</strong>
-                  <span>Returns human-readable text or JSON depending selected mode.</span>
-                </li>
-              </ol>
+        <section className="landing-screen screen-concepts">
+          <div className="concepts-inner card">
+            <h2>Key Concepts: Understanding ARCHE Outputs</h2>
+            <div className="concept-grid">
+              <div className="concept">
+                <h4>Behavioral Basis</h4>
+                <p><strong>Shows the foundation:</strong> "Detected formal_english register with 3 prior reviews; simulation basis historical_memory; top affinities [food, electronics]"</p>
+              </div>
+              <div className="concept">
+                <h4>Recommendation Type</h4>
+                <p><strong>Precision:</strong> Direct match (60%)</p>
+                <p><strong>Adjacent:</strong> Related categories (25%).</p>
+                <p><strong>Discovery:</strong> New categories (15%)</p>
+              </div>
+              <div className="concept">
+                <h4>Exploration Factor</h4>
+                <p><strong>inline_history:</strong> Based on your data.</p>
+                <p><strong>cold_start_prior:</strong> Cohort defaults.</p>
+                <p><strong>context_signal:</strong> Time/location adjusted.</p>
+              </div>
+              <div className="concept">
+                <h4>Explanation</h4>
+                <p>Real reasoning: "Matches your interest in nigerian_cuisine"—not cryptic internal state codes.</p>
+              </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="landing-sections">
-            <article className="card section-card">
-              <h3>Platform Overview</h3>
-              <p className="muted">ARCHE is designed to show how product teams can move from vague user signals to explainable decisions in a single pipeline.</p>
-              <div className="feature-row">
-                <div className="feature-item">
-                  <Icon name="ingest" />
-                  <div>
-                    <h4>Robust Input Handling</h4>
-                    <p className="muted-small">Input repair accepts malformed or natural language requests and maps them to valid API contracts.</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <Icon name="llm" />
-                  <div>
-                    <h4>User Behavior Simulation</h4>
-                    <p className="muted-small">Task A predicts a realistic user response and supports plain-text output mode for direct consumption.</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <Icon name="explain" />
-                  <div>
-                    <h4>Explainable Recommendations</h4>
-                    <p className="muted-small">Task B generates ranked outputs and traceable explanations for why each recommendation was selected.</p>
-                  </div>
-                </div>
-              </div>
-            </article>
+        <section className="landing-screen screen-how">
+          <div className="how-inner card">
+            <h2>How it works</h2>
+            <ol>
+              <li><strong>Input Layer</strong> — Accepts normal language, JSON, or form entries; repairs malformed input.</li>
+              <li><strong>Translation</strong> — Converts inputs to schema-safe payloads for the API.</li>
+              <li><strong>Reasoning</strong> — Simulation and ranking agents produce predictions and scores.</li>
+              <li><strong>Output</strong> — Returns human-readable text and structured JSON with explanations.</li>
+            </ol>
+          </div>
+        </section>
 
-            <article className="card section-card">
-              <h3>Deployment Notes</h3>
-              <ul className="bullet-list muted">
-                <li>Use the task pages to test plain text, JSON, and entry-based request modes.</li>
-                <li>Swagger remains the contract source for backend validation and quick testing.</li>
-                <li>The SDK page includes copy-ready integration examples for local and production.</li>
-              </ul>
-              <div className="cta-row" style={{justifyContent:'flex-start'}}>
-                <button className="btn" onClick={()=>nav('/sdk')}>Read SDK Guide</button>
-                <button className="btn" onClick={()=>nav('/task-b')}>Try Recommendation Flow</button>
-              </div>
-            </article>
-          </section>
+        <section className="landing-screen screen-stack">
+          <div className="stack-inner card">
+            <h2>Stack & Techniques</h2>
+            <p className="muted">FastAPI backend, lightweight orchestrator agents, deterministic privacy abstraction, and a Vite+React frontend. Supports input repair, simulation, ranking, and explainability traces.</p>
+            <div className="tech-grid">
+              <div className="tech">FastAPI</div>
+              <div className="tech">Pydantic</div>
+              <div className="tech">React + Vite</div>
+              <div className="tech">LLM Agents (local orchestration)</div>
+            </div>
+          </div>
+        </section>
 
-          <footer className="footer">ARCHE Demo Platform - Input translation, simulation, recommendation, explainability</footer>
-        </main>
-      </div>
+        <section className="landing-screen screen-api card">
+          <h2>API & SDK</h2>
+          <p className="muted">Use the API endpoints for `Task A` (simulate-review) and `Task B` (recommend). The SDK page contains usage examples and code snippets for local and production integration.</p>
+          <div className="cta-row">
+            <a className="btn primary" href={docsUrl} target="_blank" rel="noreferrer">Open API Swagger</a>
+            <button className="btn" onClick={()=>nav('/sdk')}>SDK Guide</button>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }

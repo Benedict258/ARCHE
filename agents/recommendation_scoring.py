@@ -136,7 +136,17 @@ def build_simulation_from_history(review_history: list[dict[str, Any]], context:
     preferred_price = max(set(price_tiers), key=price_tiers.count) if price_tiers else "mid"
 
     # 3. Average rating — tells us how critical this user is
-    avg_rating = sum(int(r.get("rating", 3)) for r in review_history) / len(review_history)
+    # Support float ratings (e.g., 4.5). Coerce to float safely.
+    def _num_rating(x):
+        try:
+            return float(x)
+        except Exception:
+            try:
+                return float(int(x))
+            except Exception:
+                return 3.0
+
+    avg_rating = sum(_num_rating(r.get("rating", 3)) for r in review_history) / len(review_history)
 
     # 4. Writing register detection
     all_review_text = " ".join([str(r.get("review_text", "")) for r in review_history])
@@ -213,6 +223,19 @@ def _history_from_memory_payload(memory_payload: dict[str, Any] | None) -> list[
     for row in memory_payload.get("session") or []:
         if not isinstance(row, (list, tuple)) or len(row) < 9:
             continue
+        event_type = str(row[2] or "").lower()
+        engagement_depth = row[6]
+        dwell_time_seconds = row[7]
+        rating = 3
+        if event_type in {"purchase", "save"}:
+            rating = 5
+        elif isinstance(engagement_depth, (int, float)) and float(engagement_depth) >= 0.65:
+            rating = 4
+        elif isinstance(dwell_time_seconds, (int, float)) and float(dwell_time_seconds) >= 30:
+            rating = 4
+        elif isinstance(engagement_depth, (int, float)) and float(engagement_depth) <= 0.25:
+            rating = 2
+
         session_context = row[5]
         if isinstance(session_context, str):
             try:
@@ -225,8 +248,9 @@ def _history_from_memory_payload(memory_payload: dict[str, Any] | None) -> list[
                 "item_token": row[3],
                 "category": row[4],
                 "session_context": session_context if isinstance(session_context, dict) else {},
-                "engagement_depth": row[6],
-                "dwell_time_seconds": row[7],
+                "rating": rating,
+                "engagement_depth": engagement_depth,
+                "dwell_time_seconds": dwell_time_seconds,
                 "sequence_position": row[8],
             }
         )
@@ -439,6 +463,42 @@ def score_item_against_simulation(item: dict[str, Any], simulation: dict[str, An
     return max(0.0, score)
 
 
+def _generate_explanation(item: dict[str, Any], simulation: dict[str, Any], rec_type: str) -> str:
+    """Generate a human-readable explanation for why an item was recommended."""
+    item_name = str(item.get("item_name") or "This item")
+    item_category = str(item.get("item_category") or "general")
+    
+    snapshot = _extract_snapshot(simulation)
+    top_affinities = snapshot.get("top_affinities", []) or []
+    
+    # Extract reasoning factors
+    score = item.get("_score", 0.0)
+    price_tier = item.get("price_tier", "mid")
+    preferred_price = simulation.get("preferred_price_tier", "mid")
+    
+    # Build explanation based on recommendation type
+    if rec_type == "precision":
+        # Matched their top interests
+        affinity_match = any(
+            str(a).lower() in item_category.lower() or item_category.lower() in str(a).lower()
+            for a in top_affinities
+        )
+        if affinity_match:
+            return f"Matches your interest in {item_category}. Based on your history, this aligns with items you rated highly."
+        return f"Ranked highly for {item_category} category. Consistent with your demonstrated preferences."
+    
+    elif rec_type == "adjacent_exploration":
+        # Related to interests but slightly different
+        return f"Related to {item_category}, which connects to your strongest preferences. Worth exploring based on your profile."
+    
+    else:  # discovery
+        # New category but complementary signals
+        price_note = ""
+        if price_tier == preferred_price or (price_tier == "mid" and preferred_price != "luxury"):
+            price_note = " Price tier aligns with your typical range."
+        return f"New discovery in {item_category}, based on your behavioral patterns.{price_note}"
+
+
 def rank_catalog_against_simulation(simulation: dict[str, Any], catalog: list[dict[str, Any]], n: int = 10) -> list[dict[str, Any]]:
     # Score every item
     scored: list[dict[str, Any]] = []
@@ -485,7 +545,7 @@ def rank_catalog_against_simulation(simulation: dict[str, Any], catalog: list[di
     while len(final) < n and remainder:
         final.append(remainder.pop(0))
 
-    # Tag recommendation type
+    # Tag recommendation type and generate explanation
     for i, item in enumerate(final):
         if i < n_precision:
             item["recommendation_type"] = "precision"
@@ -493,5 +553,8 @@ def rank_catalog_against_simulation(simulation: dict[str, Any], catalog: list[di
             item["recommendation_type"] = "adjacent_exploration"
         else:
             item["recommendation_type"] = "discovery"
+        
+        # Generate intelligent explanation
+        item["explanation"] = _generate_explanation(item, simulation, item["recommendation_type"])
 
     return final[:n]

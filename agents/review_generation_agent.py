@@ -76,6 +76,11 @@ Do NOT include any surrounding commentary."""
                             "tone_confidence": float(parsed.get("confidence") or parsed.get("tone_confidence") or 0.0),
                             "behavioural_basis": str(parsed.get("reasoning") or parsed.get("behavioural_basis") or ""),
                             "user_token": user_token,
+                            "llm_instrumentation": {
+                                "used": True,
+                                "provider": sim_agent.llm_provider,
+                                "model": sim_agent.groq_model if sim_agent.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
+                            },
                         }
         except Exception:
             # LLM path failed; fall back to deterministic
@@ -105,10 +110,14 @@ Do NOT include any surrounding commentary."""
             tone_confidence += 0.05
         tone_confidence = round(min(0.95, tone_confidence), 2)
 
+        # Extract context with proper aliases
+        time_context = context.get("time_of_day") or context.get("time_bucket") or "unspecified time"
+        region_context = context.get("region") or context.get("region_tier") or "unspecified region"
+
         behavioural_basis = (
             f"Detected {register} register with {len(user_history)} prior reviews; "
             f"simulation basis {simulation.simulation_basis}; top affinities {', '.join(top_affinities)}; "
-            f"context {context.get('time_bucket') or 'unspecified time'} / {context.get('region_tier') or context.get('region') or 'unspecified region'}; "
+            f"context {time_context} / {region_context}; "
             f"calibration: {nigerian_context}"
         )
 
@@ -118,6 +127,11 @@ Do NOT include any surrounding commentary."""
             "tone_confidence": tone_confidence,
             "behavioural_basis": behavioural_basis,
             "user_token": user_token,
+            "llm_instrumentation": {
+                "used": False,
+                "provider": None,
+                "model": None,
+            },
         }
 
     @classmethod
@@ -230,14 +244,37 @@ Do NOT include any surrounding commentary."""
         return ", ".join(fragments)
 
     @staticmethod
-    def _style_anchor(history: list[dict[str, Any]]) -> str:
+    def _extract_style_metrics(history: list[dict[str, Any]]) -> dict[str, Any]:
+        """Extract STYLE metrics from history, NOT content.
+        Returns vocabulary complexity, sentence length, tone markers."""
         if not history:
-            return "The experience feels balanced"
-        latest = str(history[-1].get("review_text") or "").strip()
-        if not latest:
-            return "The experience feels balanced"
-        first_sentence = latest.split(".")[0].strip()
-        return first_sentence[:120] if first_sentence else latest[:120]
+            return {"avg_length": 50, "vocabulary_density": 0.3, "complexity": "moderate"}
+        
+        all_text = " ".join(str(h.get("review_text") or "") for h in history)
+        if not all_text:
+            return {"avg_length": 50, "vocabulary_density": 0.3, "complexity": "moderate"}
+        
+        sentences = [s.strip() for s in all_text.split(".") if s.strip()]
+        avg_length = mean([len(s.split()) for s in sentences]) if sentences else 50
+        
+        # Calculate vocabulary diversity
+        words = all_text.lower().split()
+        unique_words = len(set(words))
+        vocab_density = min(1.0, unique_words / max(1, len(words)))
+        
+        # Determine complexity level
+        if avg_length > 20:
+            complexity = "formal"
+        elif avg_length > 12:
+            complexity = "conversational"
+        else:
+            complexity = "casual"
+        
+        return {
+            "avg_length": avg_length,
+            "vocabulary_density": vocab_density,
+            "complexity": complexity,
+        }
 
     @staticmethod
     def _generated_review_text(
@@ -248,11 +285,18 @@ Do NOT include any surrounding commentary."""
         register: str,
         context: dict[str, Any],
     ) -> str:
-        last_review = ReviewGenerationAgent._style_anchor(history)
+        """Generate a fresh review WITHOUT copying historical text.
+        Extract style patterns but create entirely new content for the target item."""
+        
+        # Extract style metrics (not content)
+        style = ReviewGenerationAgent._extract_style_metrics(history)
+        
+        # Fix context extraction to handle both aliases
+        time_context = context.get("time_of_day") or context.get("time_bucket") or "unspecified time"
+        region_context = context.get("region") or context.get("region_tier") or "unspecified region"
+        
         item_name = str(item.get("name") or "This item")
         item_category = str(item.get("category") or "general")
-        time_bucket = str(context.get("time_bucket") or "unspecified time")
-        region = str(context.get("region") or context.get("region_tier") or "unknown region")
 
         mood = {
             5: "top tier",
@@ -265,24 +309,31 @@ Do NOT include any surrounding commentary."""
         attribute_text = ReviewGenerationAgent._attribute_phrase(dict(item.get("attributes") or {}))
         attribute_clause = f" The main details are {attribute_text}." if attribute_text else ""
 
+        # Generate fresh review based on register and style metrics
         if register == "casual_pidgin":
             return (
-                f"{item_name} dey okay sha. Na {mood} vibe be that, but I still dey look at the value side. "
-                f"At {time_bucket} for {region}, e no bad like that, and e still get sense because {attribute_text or 'the details fit the price'}."
+                f"{item_name} dey look {mood} sha. No lie, for {time_context} here for {region_context}, "
+                f"it touches the vibe well. {attribute_text or 'Everything feels right'} make sense for the value. "
+                f"I rate this kind thing when I see am.{attribute_clause}"
             )
+        
         if register == "mixed_pidgin":
             return (
-                f"{item_name} is {mood}, no lie. E fit work well for {time_bucket} in {region}, but I still want better value. "
-                f"From the way I review things, the experience is {last_review.lower() or 'balanced'}{attribute_clause}"
+                f"{item_name} is {mood}, abeg. Na so the thing dey work for {time_context} in {region_context}, "
+                f"and the value be the thing I still dey consider sha. {attribute_text or 'E get good points'}. "
+                f"I would rate am like this.{attribute_clause}"
             )
+        
         if register == "nigerian_english":
             return (
-                f"{item_name} is very okay sha. It does the job for {time_bucket} in {region}, but the value still matters. "
-                f"I would say it is {mood}, especially if you are comparing with similar options. {attribute_clause.strip()}"
+                f"{item_name} is very okay sha. For {time_context} when you are at {region_context}, "
+                f"it performs well and the overall fit is {mood}. {attribute_text or 'The quality sits well'}. "
+                f"I would recommend am, depending on what you are comparing it with.{attribute_clause}"
             )
-
-        style_anchor = last_review[:120].rstrip(".") if last_review else "The experience feels balanced"
+        
+        # formal_english (default)
         return (
-            f"{style_anchor}. {item_name} feels {mood} overall, and the {item_category.lower()} fit is fair for {time_bucket} in {region}. "
-            f"I would say it is decent, but the value still depends on what you are comparing it with.{attribute_clause}"
+            f"{item_name} presents as {mood} across {item_category.lower()} offerings. "
+            f"In the context of {time_context} and given the {region_context} location, this item demonstrates consistent value. "
+            f"{attribute_text or 'The attributes align well'}. On balance, I would rate this favorably.{attribute_clause}"
         )

@@ -43,7 +43,9 @@ const AppPage = ({mode='taskB'})=>{
   const isTaskA = mode === 'taskA'
   const [inputMode, setInputMode] = useState('text')
   const [loading, setLoading] = useState(false)
+  const [responseRaw, setResponseRaw] = useState(null)
   const [responseText, setResponseText] = useState('')
+  const [showFormatted, setShowFormatted] = useState(true)
   const [statusText, setStatusText] = useState('Idle')
 
   const [userToken, setUserToken] = useState('demo_user_001')
@@ -107,13 +109,16 @@ const AppPage = ({mode='taskB'})=>{
       if(!r.ok){
         const detail = typeof payload === 'string' ? payload : payload?.detail || payload?.error || 'Request failed'
         setStatusText(`Error (HTTP ${r.status})`)
+        setResponseRaw(null)
         setResponseText(`Error: ${detail}`)
       }else{
         setStatusText('Success')
+        setResponseRaw(payload)
         setResponseText(formatResponseForDisplay(payload))
       }
     }catch(error){
       setStatusText('Network error')
+      setResponseRaw(null)
       setResponseText(`Error: ${error.message}`)
     }finally{
       setLoading(false)
@@ -190,28 +195,7 @@ const AppPage = ({mode='taskB'})=>{
                   autoComplete="off"
                 />
               </label>
-              <button className="btn primary" disabled={loading} onClick={runPrimaryTask}>
-                {isTaskA ? 'Run User Model (Task A)' : 'Run Recommendation (Task B)'}
-              </button>
-              {!isTaskA && (
-                <button className="btn" disabled={loading} onClick={runExplain}>Run Explain</button>
-              )}
             </div>
-
-            {!isTaskA && (
-              <div className="control-row">
-                <label className="field">
-                  <span className="field-label">Recommendation ID (for Explain)</span>
-                  <input
-                    className="input-control"
-                    value={recommendationId}
-                    onChange={(e)=>setRecommendationId(e.target.value)}
-                    placeholder="rec_1_demo_user_001"
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
-            )}
           </header>
 
           <section className="card translation-card">
@@ -221,6 +205,12 @@ const AppPage = ({mode='taskB'})=>{
               <button className={`btn ${inputMode === 'text' ? 'primary' : 'ghost'}`} onClick={()=>setInputMode('text')}>Normal Text</button>
               <button className={`btn ${inputMode === 'json' ? 'primary' : 'ghost'}`} onClick={()=>setInputMode('json')}>JSON</button>
               <button className={`btn ${inputMode === 'entries' ? 'primary' : 'ghost'}`} onClick={()=>setInputMode('entries')}>Entries</button>
+            </div>
+
+            <div style={{marginTop:12}}>
+              <button className="btn primary" disabled={loading} onClick={runPrimaryTask}>
+                {isTaskA ? 'Run User Model (Task A)' : 'Run Recommendation (Task B)'}
+              </button>
             </div>
 
             {inputMode === 'text' && (
@@ -278,8 +268,22 @@ const AppPage = ({mode='taskB'})=>{
             <div className="response-head">
               <h3>Response</h3>
               <span className="status-pill">{statusText}</span>
+              <div style={{marginLeft:12}}>
+                <button className={`btn ${showFormatted ? 'primary' : 'ghost'}`} onClick={()=>setShowFormatted(true)}>Formatted</button>
+                <button className={`btn ${!showFormatted ? 'primary' : 'ghost'}`} onClick={()=>setShowFormatted(false)}>JSON</button>
+              </div>
             </div>
-            <pre className="response-output">{responseText || 'No output yet. Run a task request to see response.'}</pre>
+            {showFormatted ? (
+              <div className="response-output formatted">
+                {responseRaw ? (
+                  <div dangerouslySetInnerHTML={{__html: renderFormattedResponse(responseRaw)}} />
+                ) : (
+                  <pre>{responseText || 'No output yet. Run a task request to see response.'}</pre>
+                )}
+              </div>
+            ) : (
+              <pre className="response-output">{responseRaw ? JSON.stringify(responseRaw, null, 2) : responseText || 'No output yet.'}</pre>
+            )}
           </section>
         </main>
       </div>
@@ -288,3 +292,58 @@ const AppPage = ({mode='taskB'})=>{
 }
 
 export default AppPage
+
+function renderFormattedResponse(payload){
+  try{
+    if(payload == null) return ''
+    // Plain string
+    if(typeof payload === 'string'){
+      return `<p>${escapeHtml(payload)}</p>`
+    }
+
+    // Task A response format
+    if(payload.predicted_rating !== undefined || payload.generated_review !== undefined){
+      const rating = Number(payload.predicted_rating ?? payload.predictedRating ?? 0)
+      const conf = payload.tone_confidence ?? payload.confidence ?? payload.toneConfidence
+      const review = payload.generated_review ?? payload.generatedReview ?? payload.generated
+      const basis = payload.behavioural_basis ?? payload.behaviouralBasis ?? payload.behavioural_basis
+      return `
+        <div>
+          <p><strong>Predicted rating:</strong> <strong>${rating.toFixed(1)}</strong></p>
+          <p><strong>Confidence:</strong> ${Number(conf ?? 0).toFixed(2)}</p>
+          <p><strong>Review:</strong></p>
+          <p>${escapeHtml(String(review || ''))}</p>
+          <p><em>Basis:</em> ${escapeHtml(String(basis || ''))}</p>
+        </div>
+      `
+    }
+
+    // Recommendations response
+    if(Array.isArray(payload.recommendations) || Array.isArray(payload.recommendations?.recommendations)){
+      const recs = Array.isArray(payload.recommendations) ? payload.recommendations : payload.recommendations.recommendations
+      let html = `<div><p><strong>Recommendations</strong></p>`
+      for(const r of recs){
+        const title = escapeHtml(r.item_name || r.itemName || r.item_name || r.item)
+        const explanation = escapeHtml(r.explanation || r.reasoning || r.reason || '')
+        const conf = Number(r.confidence ?? r.conf ?? 0).toFixed(2)
+        html += `<div style="margin-bottom:12px"><p><strong style=\"font-size:1.05em\">${title}</strong> <span style=\"color:#666\">(confidence: ${conf})</span></p><p>${explanation}</p></div>`
+      }
+      html += `</div>`
+      return html
+    }
+
+    // Fallback: pretty render JSON
+    return `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`
+  }catch(e){
+    return `<pre>Unable to render response: ${escapeHtml(String(e))}</pre>`
+  }
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}

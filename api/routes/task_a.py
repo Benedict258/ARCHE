@@ -14,9 +14,11 @@ router = APIRouter()
 class ReviewHistoryItem(BaseModel):
     """Single prior review used to simulate the user's taste profile."""
 
+    model_config = ConfigDict(populate_by_name=True)
+    
     item_name: str
-    item_category: str
-    rating: int
+    item_category: str = Field(alias='category')
+    rating: float
     review_text: str
 
 
@@ -93,7 +95,7 @@ class SimulateReviewRequest(BaseModel):
 
 
 class SimulateReviewResponse(BaseModel):
-    predicted_rating: int
+    predicted_rating: float
     generated_review: str
     tone_confidence: float
     behavioural_basis: str
@@ -101,7 +103,7 @@ class SimulateReviewResponse(BaseModel):
 
 def _normalise_context(context: dict[str, Any]) -> dict[str, Any]:
     return {
-        "time_bucket": context.get("time_bucket"),
+        "time_bucket": context.get("time_of_day") or context.get("time_bucket"),
         "day_type": context.get("day_type"),
         "region_tier": context.get("region") or context.get("region_tier"),
         "device_class": context.get("device_class"),
@@ -177,14 +179,20 @@ async def simulate_review(payload: SimulateReviewRequest, http_request: Request)
         "generated_review": result.get("generated_review"),
         "tone_confidence": tone_confidence,
         "behavioural_basis": behavioural_basis,
+        "llm_instrumentation": result.get("llm_instrumentation") or {"used": False, "provider": None, "model": None},
         # aliases preserved for HackAlign compatibility
         "confidence": tone_confidence,
         "reasoning": behavioural_basis,
         "_internal": result,
     }
     if payload.output_format.strip().lower() == "text":
+        pred = out.get('predicted_rating')
+        try:
+            pred_str = f"{float(pred):.1f}"
+        except Exception:
+            pred_str = str(pred)
         return PlainTextResponse(
-            f"Predicted rating: {out['predicted_rating']}\n"
+            f"Predicted rating: {pred_str}\n"
             f"Review: {out['generated_review']}\n"
             f"Confidence: {out['tone_confidence']}\n"
             f"Reasoning: {out['behavioural_basis']}"

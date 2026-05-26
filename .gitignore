@@ -101,3 +101,4 @@ frontend/vite.config.d.ts
 # Keep frontend runtime helpers tracked
 !frontend/src/lib/
 !frontend/src/lib/*.js
+.claude

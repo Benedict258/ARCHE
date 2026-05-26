@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import logging
 from pathlib import Path
 from hashlib import sha256
 from contextlib import asynccontextmanager
@@ -17,6 +18,12 @@ try:
     load_dotenv()
 except Exception:
     pass
+
+_LOG_LEVEL = os.getenv("ARCHE_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, _LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 from memory.memory_manager import MemoryManager
 from api.routes.task_a import router as task_a_router
@@ -568,7 +575,7 @@ async def simulate(payload: SimulateRequest, request: Request):
         context=payload.context,
         memory_manager=request.app.state.memory_manager,
     )
-    return _simulation_dict_to_response(anonymized_token or payload.user_token, payload.context, simulation)
+    return _simulation_dict_to_response(payload.user_token, payload.context, simulation)
 
 
 @app.post("/api/v1/simulate", response_model=SimulationResponse)

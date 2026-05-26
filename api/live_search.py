@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
+import time
 from dataclasses import dataclass
+from urllib.parse import quote_plus
 from typing import Any
 
 import httpx
@@ -33,10 +36,12 @@ class LiveSearchService:
     def __init__(self) -> None:
         self.serper_api_key = os.getenv("SERPER_API_KEY")
         self.serper_base_url = os.getenv("SERPER_BASE_URL", "https://google.serper.dev/search")
+        self.enable_fallback_websearch = os.getenv("ENABLE_FALLBACK_WEBSEARCH", "true").strip().lower() in {"1", "true", "yes", "on"}
         self.llm_agent = SimulationAgent()
+        self.logger = logging.getLogger("arche.live_search")
 
     def available(self) -> bool:
-        return bool(self.serper_api_key)
+        return bool(self.serper_api_key) or self.enable_fallback_websearch
 
     @staticmethod
     def _slug(text: str) -> str:
@@ -69,6 +74,11 @@ class LiveSearchService:
                 query = f"best {category} recommendations"
             else:
                 query = f"top {category} recommendations"
+            self.logger.info(
+                "live_search_query_planned source=heuristic llm_used=false query=%s category=%s",
+                query,
+                category,
+            )
             return {"source": "heuristic", "query": query, "category": category}
 
         history_snippet = ""
@@ -87,24 +97,52 @@ class LiveSearchService:
             "Return a search query suitable for Serper web search."
         )
         try:
+            started = time.perf_counter()
             content = await self.llm_agent.call_llm(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.1)
             parsed = json.loads(content)
             if isinstance(parsed, dict) and parsed.get("query"):
+                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                self.logger.info(
+                    "live_search_query_planned source=llm llm_used=true provider=%s model=%s latency_ms=%s query=%s category=%s",
+                    self.llm_agent.llm_provider or "unknown",
+                    self.llm_agent.groq_model if self.llm_agent.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
+                    elapsed_ms,
+                    str(parsed.get("query") or ""),
+                    str(parsed.get("category") or category),
+                )
                 return {
                     "source": str(parsed.get("source") or "llm").strip() or "llm",
                     "query": str(parsed.get("query")).strip(),
                     "category": str(parsed.get("category") or category).strip() or category,
                 }
-        except Exception:
+        except Exception as exc:
+            self.logger.exception("live_search_query_planner_error error=%s", str(exc))
             pass
 
         city = str(context.get("region") or context.get("region_tier") or "Nigeria").strip()
         query = f"best {category} in {city}"
+        self.logger.info(
+            "live_search_query_planned source=fallback llm_used=false query=%s category=%s",
+            query,
+            category,
+        )
         return {"source": "fallback", "query": query, "category": category}
 
     async def search(self, query: str, num_results: int = 10) -> list[LiveSearchResult]:
-        if not self.serper_api_key:
+        if not query.strip():
             return []
+
+        if self.serper_api_key:
+            return await self._search_serper(query=query, num_results=num_results)
+
+        if self.enable_fallback_websearch:
+            self.logger.info("live_search_provider_selected provider=duckduckgo_fallback")
+            return await self._search_duckduckgo(query=query, num_results=num_results)
+
+        return []
+
+    async def _search_serper(self, query: str, num_results: int = 10) -> list[LiveSearchResult]:
+        started = time.perf_counter()
 
         payload = {"q": query, "num": max(1, min(int(num_results), 10))}
         headers = {
@@ -136,6 +174,63 @@ class LiveSearchService:
                     metadata={"position": idx, "query": query},
                 )
             )
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        self.logger.info(
+            "live_search_fetch_success provider=serper query=%s results=%s latency_ms=%s",
+            query,
+            len(results),
+            elapsed_ms,
+        )
+        return results
+
+    async def _search_duckduckgo(self, query: str, num_results: int = 10) -> list[LiveSearchResult]:
+        started = time.perf_counter()
+        url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1&skip_disambig=1"
+        results: list[LiveSearchResult] = []
+        inferred_category = self._infer_category(query)
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+        related = data.get("RelatedTopics") or []
+
+        def _flatten_topics(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            flattened: list[dict[str, Any]] = []
+            for topic in items:
+                if isinstance(topic, dict) and isinstance(topic.get("Topics"), list):
+                    flattened.extend(_flatten_topics(topic.get("Topics") or []))
+                else:
+                    flattened.append(topic)
+            return flattened
+
+        for idx, item in enumerate(_flatten_topics(related)[:num_results], start=1):
+            text = str(item.get("Text") or "").strip()
+            link = str(item.get("FirstURL") or "").strip()
+            if not text and not link:
+                continue
+            title = text.split(" - ", 1)[0] if " - " in text else (text[:120] or f"live_item_{idx}")
+            results.append(
+                LiveSearchResult(
+                    item_id=f"live:{self._fingerprint(title + link)}",
+                    item_name=title,
+                    item_category=inferred_category,
+                    source="duckduckgo",
+                    description=text,
+                    price_tier="mid",
+                    url=link or None,
+                    metadata={"position": idx, "query": query},
+                )
+            )
+
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        self.logger.info(
+            "live_search_fetch_success provider=duckduckgo query=%s results=%s latency_ms=%s",
+            query,
+            len(results),
+            elapsed_ms,
+        )
         return results
 
     @staticmethod
