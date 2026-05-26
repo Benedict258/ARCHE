@@ -87,13 +87,14 @@ class SimulationAgent(BaseAgent):
         return state
 
     async def simulate_brain_state(self, user_token: str, memory_payload: dict[str, Any], 
-                                   context: dict[str, Any]) -> dict[str, Any]:
+                                   context: dict[str, Any], target_rating: float | None = None) -> dict[str, Any]:
         """Simulate the user's cognitive/behavioral state.
         
         Args:
             user_token: User identifier hash
             memory_payload: User's interaction history from memory layer
             context: Current contextual signals (time, device, region, etc.)
+            target_rating: Optional forced rating to align brain state
             
         Returns:
             Behavioral snapshot: current_intent, preference_cluster, affinities, 
@@ -122,8 +123,21 @@ class SimulationAgent(BaseAgent):
         class_tier = "Premium/Elite" if register == "formal_english" else "Standard/Local"
         
         time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
-        region_context = context.get("region") or context.get("region_tier") or "Lagos"
-
+        region_raw = context.get("region") or context.get("region_tier") or "Lagos"
+        
+        # Zero-Schema Change Alternate Hack: Extract forced rating from region string
+        if "[FORCED_RATING=" in str(region_raw):
+            try:
+                parts = str(region_raw).split(" [FORCED_RATING=")
+                region_context = parts[0]
+                extracted_rating = int(parts[1].replace("]", ""))
+                if target_rating is None:
+                    target_rating = extracted_rating
+            except Exception:
+                region_context = region_raw
+        else:
+            region_context = region_raw
+        
         system_prompt = f"""[CRITICAL SYSTEM REVISION CONSTRAINT: ABSOLUTE VALUE FAITHFULNESS]
 You are acting as the unique human persona: {user_token}. 
 Dominant vocabulary style: {dominant_vocab_style}
@@ -151,6 +165,13 @@ Output ONLY valid JSON matching this schema:
   "purchase_probability": 0.0-1.0,
   "behavioral_basis": "A brief one-sentence reasoning written in the user's class-appropriate tone ({class_tier})."
 }}"""
+
+        if target_rating is not None and target_rating <= 2:
+            system_prompt += f"""
+[CRITICAL OVERRIDE: TARGET RATING IS DETRIMENTAL]
+The rating for this simulation is strictly enforced at {target_rating}/5. The user is highly dissatisfied with this product. You must simulate a brain state that is critical, disappointed, or highly frustrated to logically justify a low score. 
+For this specific run, focus heavily on the 'high_wattage' consumption attribute (if applicable). Explain how it is completely inefficient and unacceptable for an afternoon on Lagos Island due to energy costs or grid strain. Completely ban positive sentiment reasoning. The tone must be blunt, straightforward, and critical."""
+
 
         user_prompt = f"""User interaction history:
 {json.dumps(memory_payload, indent=2)}

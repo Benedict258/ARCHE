@@ -142,6 +142,7 @@ class LangGraphStyleOrchestrator:
         user_history: list[dict[str, Any]],
         item: dict[str, Any],
         context: dict[str, Any] | None = None,
+        forced_rating: float | None = None,
     ) -> dict[str, Any]:
         """Task A flow: context -> simulation -> review generation.
 
@@ -168,7 +169,9 @@ class LangGraphStyleOrchestrator:
         # For Task A, simulation should be grounded in provided user history.
         state.memory_payload = self._build_history_memory_payload(user_token=user_token, user_history=user_history)
         if getattr(self.simulation_agent, "llm", None) is not None:
-            llm_snapshot = await self.simulation_agent.simulate_brain_state(user_token, state.memory_payload, state.context)
+            llm_snapshot = await self.simulation_agent.simulate_brain_state(
+                user_token, state.memory_payload, state.context, target_rating=forced_rating
+            )
             state.simulation = SimpleNamespace(
                 user_token=user_token,
                 simulated_at=None,
@@ -199,6 +202,7 @@ class LangGraphStyleOrchestrator:
             item=item,
             context=state.context,
             simulation=state.simulation,
+            forced_rating=forced_rating,
         )
 
     async def route_task_a(
@@ -208,6 +212,7 @@ class LangGraphStyleOrchestrator:
         user_history: list[dict[str, Any]],
         item: dict[str, Any],
         context: dict[str, Any] | None = None,
+        forced_rating: float | None = None,
     ) -> dict[str, Any]:
         """Explicit Task A route: simulate-review pipeline."""
         return await self.run_simulate_review(
@@ -215,6 +220,7 @@ class LangGraphStyleOrchestrator:
             user_history=user_history,
             item=item,
             context=context,
+            forced_rating=forced_rating,
         )
 
     async def route_task_b(

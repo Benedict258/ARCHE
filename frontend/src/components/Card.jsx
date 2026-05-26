@@ -2,9 +2,9 @@ import React from 'react'
 
 const Card = ({children, className='', title})=>{
   return (
-    <div className={`card ${className}`} style={{padding:18}}>
-      {title && <div style={{fontWeight:600,marginBottom:8}}>{title}</div>}
-      <div>{children}</div>
+    <div className={`card ${className}`}>
+      {title && <div className="card-title">{title}</div>}
+      <div className="card-content">{children}</div>
     </div>
   )
 }

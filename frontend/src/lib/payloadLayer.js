@@ -40,6 +40,7 @@ export function buildTaskARequest({inputMode, textInput, jsonInput, entries, use
       time_of_day: entries.timeOfDay || 'evening',
       region: entries.region || 'Lagos'
     },
+    forced_rating: entries.forcedRating ? Number(entries.forcedRating) : undefined,
     output_format: 'json'
   }
 }
@@ -56,10 +57,20 @@ export function buildTaskBRecommendRequest({inputMode, textInput, jsonInput, ent
     return parseJsonInput(jsonInput)
   }
 
+  let itemPool = undefined
+  if(entries.itemPoolJson){
+    try{
+      itemPool = JSON.parse(entries.itemPoolJson)
+    }catch(e){
+      console.error('Invalid item pool JSON', e)
+    }
+  }
+
   return {
     user_token: userToken,
     n: Number(entries.n || 5),
     domain_filter: entries.domainFilter || undefined,
+    item_pool: itemPool,
     context: {
       time_bucket: entries.timeBucket || 'evening',
       entry_point: entries.entryPoint || 'web'

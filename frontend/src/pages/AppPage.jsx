@@ -62,9 +62,11 @@ const AppPage = ({mode='taskB'})=>{
     priceTier: 'mid',
     timeOfDay: 'evening',
     region: 'Lagos',
+    forcedRating: '',
     timeBucket: 'evening',
     entryPoint: 'web',
     domainFilter: 'food',
+    itemPoolJson: '',
     n: '5',
     recommendationId: ''
   })
@@ -175,9 +177,9 @@ const AppPage = ({mode='taskB'})=>{
   }
 
   return (
-    <div className="app-shell" style={{display:'flex',minHeight:'100vh'}}>
+    <div className="app-shell">
       <Sidebar />
-      <div className="main-shell" style={{flex:1}}>
+      <div className="main-shell">
         <TopNav />
 
         <main className="page task-page">
@@ -249,6 +251,7 @@ const AppPage = ({mode='taskB'})=>{
                     <label className="field"><span className="field-label">Price Tier</span><input className="input-control" value={entries.priceTier} onChange={(e)=>updateEntry('priceTier', e.target.value)} /></label>
                     <label className="field"><span className="field-label">Time of Day</span><input className="input-control" value={entries.timeOfDay} onChange={(e)=>updateEntry('timeOfDay', e.target.value)} /></label>
                     <label className="field"><span className="field-label">Region</span><input className="input-control" value={entries.region} onChange={(e)=>updateEntry('region', e.target.value)} /></label>
+                    <label className="field"><span className="field-label">Forced Rating (1-5)</span><input className="input-control" placeholder="Optional" value={entries.forcedRating} onChange={(e)=>updateEntry('forcedRating', e.target.value)} /></label>
                     <label className="field full-width"><span className="field-label">Review History Text</span><textarea className="text-area" value={entries.reviewText} onChange={(e)=>updateEntry('reviewText', e.target.value)} /></label>
                   </>
                 ) : (
@@ -258,6 +261,7 @@ const AppPage = ({mode='taskB'})=>{
                     <label className="field"><span className="field-label">Time Bucket</span><input className="input-control" value={entries.timeBucket} onChange={(e)=>updateEntry('timeBucket', e.target.value)} /></label>
                     <label className="field"><span className="field-label">Result Count (n)</span><input className="input-control" value={entries.n} onChange={(e)=>updateEntry('n', e.target.value)} /></label>
                     <label className="field"><span className="field-label">Recommendation ID</span><input className="input-control" value={entries.recommendationId} onChange={(e)=>updateEntry('recommendationId', e.target.value)} /></label>
+                    <label className="field full-width"><span className="field-label">Item Pool JSON (Optional)</span><textarea className="text-area code" placeholder='[{"item_name": "Item 1", "category": "food"}]' value={entries.itemPoolJson} onChange={(e)=>updateEntry('itemPoolJson', e.target.value)} /></label>
                   </>
                 )}
               </div>

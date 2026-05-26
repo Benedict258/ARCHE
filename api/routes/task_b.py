@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
@@ -13,6 +11,19 @@ from api.request_repair import repair_payload_from_text
 from orchestrator.recommendation_persistence import save_last_recommendation
 
 router = APIRouter()
+
+
+class ItemDetailsModel(BaseModel):
+    """Member item of an evaluation pool."""
+    name: str | None = Field(default=None, alias="item_name")
+    item_name: str | None = None
+    category: str | None = Field(default=None, alias="item_category")
+    item_category: str | None = None
+    price_tier: str | None = "mid"
+    description: str | None = ""
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class SimulateContext(BaseModel):
@@ -61,6 +72,10 @@ class RecommendRequest(BaseModel):
     context: SimulateContext = Field(
         default_factory=SimulateContext,
         description="Context such as time_bucket, device_class, or entry_point.",
+    )
+    item_pool: List[ItemDetailsModel] | None = Field(
+        default=None,
+        description="Pool of items to rank for recommendation. If provided, the local catalog is ignored.",
     )
     n: int = Field(default=10, description="Number of recommendations to return.")
     domain_filter: str | None = Field(default=None, description="Optional domain filter like food, books, or shopping.")
@@ -196,11 +211,16 @@ async def recommend(payload: RecommendRequest, request: Request):
         memory_manager=memory_manager,
     )
 
-    # Use full catalog from processed yelp data for recommendations.
-    catalog = get_catalog_list()
+    # Use item_pool if provided, otherwise fallback to local catalog.
+    if payload.item_pool:
+        catalog = [item.model_dump(by_alias=True) for item in payload.item_pool]
+    else:
+        catalog = get_catalog_list()
+
     if domain_filter:
         catalog = [item for item in catalog if str(item.get("item_category") or "").lower() == domain_filter]
-    if not catalog:
+    
+    if not catalog and not payload.item_pool:
         catalog = get_catalog_list()
 
     live_candidates: list[dict[str, Any]] = []
@@ -211,7 +231,7 @@ async def recommend(payload: RecommendRequest, request: Request):
     llm_used_for_live_query = False
     llm_provider_for_live_query = None
     llm_model_for_live_query = None
-    if payload.enable_live_data and live_search.available():
+    if payload.enable_live_data and live_search.available() and not payload.item_pool:
         plan = await live_search.build_query(
             category=domain_filter or context.get("entry_point") or "general",
             context=context,

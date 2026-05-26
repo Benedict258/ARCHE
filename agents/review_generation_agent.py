@@ -64,6 +64,9 @@ class ReviewGenerationAgent(BaseAgent):
             if any(w in text.lower() for w in ["impeccable", "exquisite", "absolute", "remarkable"]):
                 style_traits.append("High-status adjectives ('Exquisite', 'Impeccable')")
             
+            if text.lower().startswith(("i ", "the ")):
+                style_traits.append(f"Starts with '{text.split()[0]}'")
+            
             blueprints.append(f"Review {i+1} Blueprint: {', '.join(style_traits)}")
             
         return "\n".join(blueprints)
@@ -77,6 +80,7 @@ class ReviewGenerationAgent(BaseAgent):
         item: dict[str, Any],
         context: dict[str, Any],
         simulation: Any,
+        forced_rating: float | None = None,
     ) -> dict[str, Any]:
         """Prefer LLM-based generation with refined prompt. Falls back to natural heuristic."""
         # Try LLM path
@@ -87,64 +91,26 @@ class ReviewGenerationAgent(BaseAgent):
 
             sim_agent = SimulationAgent()
             if sim_agent.llm is not None and sim_agent.llm_provider:
-                history_texts = [str(entry.get("review_text") or "") for entry in user_history]
-                style_profile = cls._extract_style_profile(history_texts)
-                register = style_profile["register"]
-                calibration = cls.get_nigerian_calibration(register)
-                
-                style = cls._extract_style_metrics(user_history)
-                # Build a compact heuristic brief to hand off to the LLM.
-                if simulation is not None and hasattr(simulation, "behavioral_snapshot"):
-                    snapshot = simulation.behavioral_snapshot
-                    snapshot_dict = {
-                        "current_intent": getattr(snapshot, "current_intent", "exploratory_browsing"),
-                        "preference_cluster": getattr(snapshot, "preference_cluster", "A"),
-                        "top_affinities": list(getattr(snapshot, "top_affinities", []) or []),
-                        "rejection_signals": list(getattr(snapshot, "rejection_signals", []) or []),
-                        "engagement_mode": getattr(snapshot, "engagement_mode", "scanning"),
-                        "exploration_readiness": float(getattr(snapshot, "exploration_readiness", 0.5)),
-                        "purchase_probability": float(getattr(snapshot, "purchase_probability", 0.3)),
-                    }
-                else:
-                    snapshot_dict = {
-                        "current_intent": "exploratory_browsing",
-                        "preference_cluster": "A",
-                        "top_affinities": [],
-                        "rejection_signals": [],
-                        "engagement_mode": "scanning",
-                        "exploration_readiness": 0.5,
-                        "purchase_probability": 0.3,
-                    }
+                # Robust Item Data Mapping
+                item_details = item or {}
+                item_name = item_details.get("name") or item_details.get("item_name", "Unknown Item")
+                item_cat = item_details.get("category") or item_details.get("item_category", "General")
+                attributes = item_details.get("attributes", {})
 
-                if hasattr(sim_agent, "build_generation_brief"):
-                    memory_payload = {"events": [{"review_text": h.get("review_text") or ""} for h in user_history]}
-                    heuristic_brief = sim_agent.build_generation_brief(
-                        user_token=user_token,
-                        memory_payload=memory_payload,
-                        context=context,
-                        snapshot={**snapshot_dict, "behavioral_basis": getattr(simulation, "simulation_basis", "")},
-                    )
+                # Predicted rating for dynamic enforcement
+                if forced_rating is not None:
+                    predicted_rating = int(round(forced_rating))
                 else:
-                    heuristic_brief = {
-                        "user_token": user_token,
-                        "history_count": len(user_history),
-                        "current_intent": snapshot_dict["current_intent"],
-                        "preference_cluster": snapshot_dict["preference_cluster"],
-                        "top_affinities": snapshot_dict["top_affinities"],
-                        "rejection_signals": snapshot_dict["rejection_signals"],
-                        "engagement_mode": snapshot_dict["engagement_mode"],
-                        "exploration_readiness": snapshot_dict["exploration_readiness"],
-                        "purchase_probability": snapshot_dict["purchase_probability"],
-                        "behavioral_basis": getattr(simulation, "simulation_basis", ""),
-                        "context_summary": f"{context.get('time_of_day') or context.get('time_bucket') or 'daytime'} / {context.get('region') or context.get('region_tier') or 'here'}",
-                    }
-                
-                # Extract register and stylistic markers
+                    predicted_rating = cls._predict_rating(user_history, item_details, simulation)
+
                 history_texts = [str(entry.get("review_text") or "") for entry in user_history]
                 style_profile = cls._extract_style_profile(history_texts)
                 register = style_profile["register"]
                 calibration = cls.get_nigerian_calibration(register)
                 
+                # Extract style blueprints for structural mirroring
+                style_blueprints = cls._extract_style_blueprints(history_texts)
+
                 # Extract stylistic markers for tighter guardrailing
                 all_text = " ".join(history_texts).lower()
                 elitist_adjectives = ["impeccable", "exquisite", "remarkable", "sluggish", "subpar", "unacceptable", "sophisticated", "elegant", "refined", "concierge", "meticulous", "ambiance"]
@@ -206,20 +172,43 @@ You are acting as the unique human persona: {user_token}.
 Dominant vocabulary style: {dominant_vocab_style}
 
 1. TONE & REGISTRY LOCK: You must analyze the vocabulary depth, syntax complexity, and emotional posture of the user's historical reviews. If the user writes in ultra-premium, formal, critical English, your generated text MUST match that level of refinement exactly. 
-2. DO NOT use generic local modifiers like "sha", "omo", "wella", or "very okay" unless those specific tokens are explicitly present in the provided history.
-3. CONTEXTUAL TRANSLATION: Do not let regional parameters ({context.get('region') or 'Lagos'}, {context.get('time_of_day') or 'daytime'}) hijack the user's social class or vocabulary. If an elitist critic is in Victoria Island at night, they will describe the environment using their native vocabulary (e.g., "The ambiance was sophisticated, well-complemented by a strictly enforced elegant dress code") rather than casual chatty language.
-4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. If they have a historical average rating of low scores for execution slips, a 15-minute wait time should be evaluated according to their personal strict standards."""
+2. DO NOT use generic local modifiers like "sha", "omo", "wella", or "very okay" unless those specific tokens are explicitly present in the provided history. Banned idioms: "totally my vibe", "top dollar", "you feel me".
+3. CONTEXTUAL TRANSLATION: Do not let regional parameters ({context.get('region') or 'Lagos'}, {context.get('time_of_day') or 'daytime'}) hijack the user's social class or vocabulary.
+4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. Evaluate the current context according to their personal strict standards.
 
-                if register == "formal_english":
-                    system_prompt += """
-[CRITICAL LINGUISTIC BLOCKLIST]
-The persona you are simulating is a sophisticated, upscale, critical reviewer.
-1. ABSOLUTELY FORBIDDEN TOKENS: Do not use casual conversational fillers or local street slang. Specifically ban: "sha", "you feel me", "wella", "omo", "very okay", "i guess", "make sense".
-2. COMPLEX SYNTAX ONLY: Use clear, structured, elevated vocabulary matching his history (e.g., words like 'unacceptable', 'impeccable', 'subpar', 'exquisite').
-3. AMBIANCE AND REGIONAL FRAMING: Treat Victoria Island not as a casual hang-out spot, but as a premium district. Maintain a high social-status posture throughout the review.
+STYLE BLUEPRINT FROM USER HISTORY (Grammatical blueprints to mirror):
+{style_blueprints}
+
+[CRITICAL SYSTEM CONSTRAINT: RATING-SENTIMENT COHERENCE]
+The numerical rating for this simulation is strictly: {predicted_rating}/5. 
+Your generated textual prose MUST match this numerical score logically.
+
+- If rating is 5: The tone must be unconditionally celebratory, highlighting flawless execution.
+- If rating is 4: The tone must be highly favorable but contain a minor reservation or grounded praise.
+- If rating is 3: The tone must be critical, mixed, or lukewarm. The user must highlight what did NOT work or where the execution fell short (e.g., for an academic, point out where the themes felt unevenly paced, overly simplistic, or where the narrative structure lost traction).
+- If rating is 1 or 2: The tone must be openly critical, highlighting unacceptable flaws or a total failure of execution.
+
+DO NOT use overwhelmingly positive adjectives like 'impeccable', 'masterful', or 'exquisite' if the assigned rating is a 3 or lower. Calibrate the user's vocabulary to accurately fit a {predicted_rating}/5 star evaluation.
+
+DYNAMIC RATING ENFORCEMENT:
+CRITICAL: The predicted rating for this session is exactly {predicted_rating}. The written text must reflect this rating's sentiment natively. 
+DO NOT write any numerical scores inside the text body like '{predicted_rating}.5 out of 5' or any other scores that contradict the key. Use only words to express the sentiment.
+
 """
+                if predicted_rating <= 2:
+                    system_prompt += f"""
+[CRITICAL OVERRIDE: TARGET RATING IS DETRIMENTAL]
+The rating for this simulation is strictly enforced at {predicted_rating}/5. The user is highly dissatisfied with this product. You must write a critical, disappointed, or highly frustrated review that logically justifies a low score. 
+For this specific run, focus heavily on the 'high_wattage' consumption attribute (if present). Explain how it is completely inefficient and unacceptable for an afternoon on Lagos Island due to energy costs or grid strain. Completely ban positive words like 'exquisite', 'masterpiece', 'superb', or 'impeccable'. The tone must be blunt, straightforward, and critical."""
+
 
                 system_prompt += f"""
+[CRITICAL LINGUISTIC BLOCKLIST]
+(Applied for {register} personas)
+- ABSOLUTELY FORBIDDEN: "sha", "you feel me", "wella", "omo", "very okay", "i guess", "make sense", "totally my vibe", "top dollar".
+- COMPLEX SYNTAX ONLY: Use clear, structured, elevated vocabulary (e.g., 'unacceptable', 'impeccable', 'subpar', 'exquisite').
+- HIGH STATUS POSTURE: Victoria Island is a premium district; maintain social-status refinement.
+
 USER REGISTER & STYLE CALIBRATION:
 {calibration}
 
@@ -245,9 +234,9 @@ Respond ONLY with the review text itself, no JSON, no commentary."""
 {heuristic_brief}
 
 Item to review:
-- Name: {item.get('name', 'this item')}
-- Category: {item.get('category', 'general')}
-- Key attributes: {ReviewGenerationAgent._humanize_attributes(dict(item.get('attributes') or {}))}
+- Name: {item_name}
+- Category: {item_cat}
+- Key attributes: {ReviewGenerationAgent._humanize_attributes(dict(attributes))}
 
 Write the review as one natural paragraph."""
 
@@ -261,17 +250,17 @@ Write the review as one natural paragraph."""
                     if review_text.startswith(('"', "'")):
                         review_text = review_text.strip('"\'')
 
-                    if cls._looks_like_attribute_dump(review_text, item):
+                    if cls._looks_like_attribute_dump(review_text, item_details):
                         raise ValueError("LLM response looked like attribute dumping")
                     
                     tone_confidence = 0.78
                     
                     # Telemetry override for class tier
                     class_tier = "Premium/Elite" if register == "formal_english" else style_profile['sub_register']
-                    behavioural_basis = f"LLM-generated {class_tier} review for {item.get('name', 'item')}; enforced rating={predicted_rating}"
+                    behavioural_basis = f"LLM-generated {class_tier} review for {item_name}; enforced rating={predicted_rating}"
                     
                     return {
-                        "predicted_rating": predicted_rating,
+                        "predicted_rating": float(predicted_rating),
                         "generated_review": review_text,
                         "tone_confidence": tone_confidence,
                         "behavioural_basis": behavioural_basis,
@@ -283,9 +272,11 @@ Write the review as one natural paragraph."""
                         },
                     }
                 except Exception as llm_error:
-                    logger.debug(f"LLM generation failed, using fallback: {str(llm_error)[:60]}")
+                    logger.error(f"review_generation llm_call_error: {str(llm_error)}")
+                    logger.debug(f"LLM generation failed, using fallback: {str(llm_error)[:100]}")
         except Exception as e:
             import logging
+            logging.getLogger("arche.llm").error(f"review_generation init_error: {str(e)}")
             logging.getLogger("arche.llm").debug(f"LLM init failed: {e}")
 
         # Deterministic fallback (original behavior)
@@ -294,7 +285,11 @@ Write the review as one natural paragraph."""
         register = style_profile["register"]
         nigerian_context = cls.get_nigerian_calibration(register)
 
-        predicted_rating = cls._predict_rating(user_history, item, simulation)
+        if forced_rating is not None:
+            predicted_rating = int(round(forced_rating))
+        else:
+            predicted_rating = cls._predict_rating(user_history, item, simulation)
+
         generated_review = cls._generated_review_text(
             history=user_history,
             item=item,
@@ -317,15 +312,12 @@ Write the review as one natural paragraph."""
         time_context = context.get("time_of_day") or context.get("time_bucket") or "unspecified time"
         region_context = context.get("region") or context.get("region_tier") or "unspecified region"
 
-        behavioural_basis = (
-            f"Detected {style_profile['sub_register']} style with {len(user_history)} prior reviews; "
-            f"simulation basis {simulation.simulation_basis}; top affinities {', '.join(top_affinities)}; "
-            f"context {time_context} / {region_context}; "
-            f"calibration: {nigerian_context}"
-        )
+        # Telemetry override for class tier
+        class_tier = "Premium/Elite" if register == "formal_english" else style_profile['sub_register']
+        behavioural_basis = f"Fallback {class_tier} review for {item.get('name', 'item')}; enforced rating={predicted_rating}"
 
         return {
-            "predicted_rating": predicted_rating,
+            "predicted_rating": float(predicted_rating),
             "generated_review": generated_review,
             "tone_confidence": tone_confidence,
             "behavioural_basis": behavioural_basis,
