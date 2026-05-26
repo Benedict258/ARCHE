@@ -308,7 +308,6 @@ Return only JSON."""
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.2,
-            "response_format": {"type": "json_object"},
         }
 
         async with httpx.AsyncClient(timeout=20.0) as client:

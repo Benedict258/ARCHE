@@ -16,9 +16,9 @@ class ReviewGenerationAgent(BaseAgent):
 
     name = "review_generation"
 
-    _PIDGIN_MARKERS = ("sha", "abi", "sef", "abeg", "na im", "e be like", "naija", "9ja", "oga")
-    _NIGERIAN_ENGLISH_MARKERS = ("very okay", "too much", "value", "price", "worth it", "not bad", "food", "service")
-    _FORMAL_MARKERS = ("overall", "however", "recommend", "consistent", "quality", "experience")
+    _PIDGIN_MARKERS = ("sha", "abi", "sef", "abeg", "na im", "e be like", "naija", "9ja", "oga", "no cap", "fr", "omo", "nah", "mad", "clean", "slaps", "vibe", "it is giving", "unhinged", "chief", "guy", "joor", "ahn", "shey")
+    _NIGERIAN_ENGLISH_MARKERS = ("very okay", "too much", "value", "price", "worth it", "not bad", "food", "service", "practical", "quality", "experience", "decent")
+    _FORMAL_MARKERS = ("overall", "however", "recommend", "consistent", "research", "thoroughly", "professional")
 
     async def run(self, state: AgentState) -> AgentState:
         return state
@@ -33,58 +33,87 @@ class ReviewGenerationAgent(BaseAgent):
         context: dict[str, Any],
         simulation: Any,
     ) -> dict[str, Any]:
-        """Prefer LLM-based generation: construct a prompt with the simulation snapshot
-        and request a JSON response with rating, review text, confidence, and reasoning.
-
-        If LLM is unavailable or fails, use the deterministic generator.
-        """
+        """Prefer LLM-based generation with refined prompt. Falls back to natural heuristic."""
         # Try LLM path
         try:
             from agents.simulation_agent import SimulationAgent
+            import logging
+            logger = logging.getLogger("arche.llm")
 
             sim_agent = SimulationAgent()
-            if sim_agent.llm is not None:
-                # Build prompt
-                system_prompt = """You are ARCHE's Review Generation engine. Given a behavioral snapshot, user history, and item details,
-produce a realistic review text and a star rating. Respond with a JSON object with keys:
-predicted_rating (int 1-5), generated_review (string), confidence (0.0-1.0), reasoning (brief string).
-Do NOT include any surrounding commentary."""
+            if sim_agent.llm is not None and sim_agent.llm_provider:
+                # Extract calibration from register detection
+                history_texts = [str(entry.get("review_text") or "") for entry in user_history]
+                register = cls.detect_register(history_texts)
+                calibration = cls.get_nigerian_calibration(register)
+                
+                # Extract style metrics but NOT content
+                style = cls._extract_style_metrics(user_history)
+                history_snippets = "\n".join([f"- {h.get('review_text', '')[:60]}..." for h in user_history[:3]])
+                
+                # Build the refined prompt following user specifications
+                system_prompt = f"""You are simulating a specific user persona to generate a highly realistic review for a new item.
 
-                snapshot = getattr(simulation, 'behavioral_snapshot', simulation) if simulation is not None else {}
-                user_history_text = "\n".join([f"- {h.get('item_name')}: {h.get('review_text')} ({h.get('rating')})" for h in user_history])
+USER REGISTER & STYLE CALIBRATION:
+{calibration}
 
-                user_prompt = f"Behavioral snapshot:\n{snapshot}\n\nUser history:\n{user_history_text}\n\nItem details:\n{item}\n\nContext:\n{context}\n\nProduce the JSON response."
+STYLE CHARACTERISTICS (Analyze only. DO NOT copy sentences):
+- Average sentence length: {style.get('avg_length', 15):.0f} words
+- Vocabulary diversity: {style.get('vocabulary_density', 0.5):.0f}
+- Tone: {style.get('complexity', 'conversational')}
 
-                content = await sim_agent.call_llm(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.45)
+CRITICAL EXECUTION RULES:
+1. Write a completely organic, fresh review in the persona's authentic voice.
+2. DO NOT output raw attribute strings or "key is value" patterns. Translate attributes naturally.
+3. Weave contextual variables (time, region) into the experience naturally.
+4. Do NOT use robotic meta-phrases unless the persona uses them natively.
+Respond ONLY with the review text itself, no JSON, no commentary."""
 
-                # Parse LLM output
-                if isinstance(content, str):
-                    if "```json" in content:
-                        content = content.split("```json", 1)[1].split("```", 1)[0]
-                    elif "```" in content:
-                        content = content.split("```", 1)[1].split("```", 1)[0]
-                    parsed = None
-                    try:
-                        parsed = __import__("json").loads(content.strip())
-                    except Exception:
-                        parsed = None
+                time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
+                region_context = context.get("region") or context.get("region_tier") or "your area"
+                
+                user_prompt = f"""Generate a review for:
+- Item: {item.get('name', 'this item')}
+- Category: {item.get('category', 'general')}
+- Key attributes: {ReviewGenerationAgent._humanize_attributes(dict(item.get('attributes') or {}))}
+- Context: {time_context} in {region_context}
 
-                    if parsed and isinstance(parsed, dict):
-                        return {
-                            "predicted_rating": int(parsed.get("predicted_rating") or parsed.get("rating") or 3),
-                            "generated_review": str(parsed.get("generated_review") or parsed.get("review_text") or ""),
-                            "tone_confidence": float(parsed.get("confidence") or parsed.get("tone_confidence") or 0.0),
-                            "behavioural_basis": str(parsed.get("reasoning") or parsed.get("behavioural_basis") or ""),
-                            "user_token": user_token,
-                            "llm_instrumentation": {
-                                "used": True,
-                                "provider": sim_agent.llm_provider,
-                                "model": sim_agent.groq_model if sim_agent.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
-                            },
-                        }
-        except Exception:
-            # LLM path failed; fall back to deterministic
-            pass
+Historical style references:
+{history_snippets}
+
+Now write the review:"""
+
+                try:
+                    logger.info(f"review_generation llm_call_start provider={sim_agent.llm_provider} model={sim_agent.groq_model if sim_agent.llm_provider == 'groq' else 'claude-3-5-sonnet-20241022'}")
+                    content = await sim_agent.call_llm(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.6)
+                    logger.info(f"review_generation llm_call_success provider={sim_agent.llm_provider}")
+                    
+                    # Clean up the response
+                    review_text = str(content).strip()
+                    if review_text.startswith(('"', "'")):
+                        review_text = review_text.strip('"\'')
+                    
+                    # Predict rating based on history
+                    predicted_rating = cls._predict_rating(user_history, item, simulation)
+                    tone_confidence = 0.78
+                    
+                    return {
+                        "predicted_rating": predicted_rating,
+                        "generated_review": review_text,
+                        "tone_confidence": tone_confidence,
+                        "behavioural_basis": f"LLM-generated {register} review for {item.get('name', 'item')}",
+                        "user_token": user_token,
+                        "llm_instrumentation": {
+                            "used": True,
+                            "provider": sim_agent.llm_provider,
+                            "model": sim_agent.groq_model if sim_agent.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
+                        },
+                    }
+                except Exception as llm_error:
+                    logger.debug(f"LLM generation failed, using fallback: {str(llm_error)[:60]}")
+        except Exception as e:
+            import logging
+            logging.getLogger("arche.llm").debug(f"LLM init failed: {e}")
 
         # Deterministic fallback (original behavior)
         history_texts = [str(entry.get("review_text") or "") for entry in user_history]
@@ -231,17 +260,27 @@ Do NOT include any surrounding commentary."""
         return ReviewGenerationAgent._clamp_rating(score)
 
     @staticmethod
+    def _humanize_attributes(attributes: dict[str, Any]) -> str:
+        """Convert raw attributes into natural language hints for LLM context.
+        DO NOT include these directly in review - they're just for LLM awareness."""
+        if not attributes:
+            return "no special attributes"
+        hints: list[str] = []
+        for key, value in list(attributes.items())[:3]:
+            label = str(key).replace("_", " ").title()
+            if isinstance(value, bool):
+                if value:
+                    hints.append(f"{label} available")
+            else:
+                hints.append(f"{label}: {value}")
+        return "; ".join(hints) if hints else "standard"
+
+    @staticmethod
     def _attribute_phrase(attributes: dict[str, Any]) -> str:
+        """Deprecated: Fall-back for old code. Use _humanize_attributes instead."""
         if not attributes:
             return ""
-        fragments: list[str] = []
-        for key, value in list(attributes.items())[:3]:
-            label = str(key).replace("_", " ")
-            if isinstance(value, bool):
-                fragments.append(f"{label} is {'present' if value else 'not strong'}")
-            else:
-                fragments.append(f"{label} is {value}")
-        return ", ".join(fragments)
+        return ReviewGenerationAgent._humanize_attributes(attributes)
 
     @staticmethod
     def _extract_style_metrics(history: list[dict[str, Any]]) -> dict[str, Any]:
@@ -285,55 +324,58 @@ Do NOT include any surrounding commentary."""
         register: str,
         context: dict[str, Any],
     ) -> str:
-        """Generate a fresh review WITHOUT copying historical text.
-        Extract style patterns but create entirely new content for the target item."""
+        """Generate a NATURAL fallback review without copying history or dumping raw attributes.
+        This fires when LLM is unavailable - prioritize authenticity over perfection."""
         
-        # Extract style metrics (not content)
-        style = ReviewGenerationAgent._extract_style_metrics(history)
-        
-        # Fix context extraction to handle both aliases
-        time_context = context.get("time_of_day") or context.get("time_bucket") or "unspecified time"
-        region_context = context.get("region") or context.get("region_tier") or "unspecified region"
+        # Context extraction with aliases
+        time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
+        region_context = context.get("region") or context.get("region_tier") or "here"
         
         item_name = str(item.get("name") or "This item")
-        item_category = str(item.get("category") or "general")
 
-        mood = {
-            5: "top tier",
-            4: "solid",
-            3: "decent",
-            2: "mixed",
-            1: "not impressive",
+        # Sentiment descriptors - never leak raw attributes
+        positive_sentiment = {
+            5: "absolutely fantastic",
+            4: "really solid",
+            3: "pretty good",
+            2: "decent enough",
+            1: "disappointing",
+        }[predicted_rating]
+        
+        recommendation = {
+            5: "definitely buying again",
+            4: "a great choice",
+            3: "worth trying",
+            2: "an okay option",
+            1: "not for me",
         }[predicted_rating]
 
-        attribute_text = ReviewGenerationAgent._attribute_phrase(dict(item.get("attributes") or {}))
-        attribute_clause = f" The main details are {attribute_text}." if attribute_text else ""
-
-        # Generate fresh review based on register and style metrics
+        # Generate natural reviews per register - NO attribute dumping, NO robotic templates
         if register == "casual_pidgin":
             return (
-                f"{item_name} dey look {mood} sha. No lie, for {time_context} here for {region_context}, "
-                f"it touches the vibe well. {attribute_text or 'Everything feels right'} make sense for the value. "
-                f"I rate this kind thing when I see am.{attribute_clause}"
+                f"Yo, {item_name}? No cap, it's {positive_sentiment}. "
+                f"For {time_context} here in {region_context}, the thing just slaps different. "
+                f"No complaints at all. Would I grab another? Straight up yes, {recommendation}."
             )
         
         if register == "mixed_pidgin":
             return (
-                f"{item_name} is {mood}, abeg. Na so the thing dey work for {time_context} in {region_context}, "
-                f"and the value be the thing I still dey consider sha. {attribute_text or 'E get good points'}. "
-                f"I would rate am like this.{attribute_clause}"
+                f"{item_name} sha, e no disappoint. {time_context} when you're at {region_context}, "
+                f"this one stands out for real. Abeg, the functionality is on point. "
+                f"If I need another, without thinking twice, {recommendation}."
             )
         
         if register == "nigerian_english":
             return (
-                f"{item_name} is very okay sha. For {time_context} when you are at {region_context}, "
-                f"it performs well and the overall fit is {mood}. {attribute_text or 'The quality sits well'}. "
-                f"I would recommend am, depending on what you are comparing it with.{attribute_clause}"
+                f"{item_name}? Very okay sha. For {time_context} in {region_context}, "
+                f"it's {positive_sentiment}. The practical benefits are clear when you use it. "
+                f"Value for money? Absolutely. Bottom line: {recommendation}."
             )
         
-        # formal_english (default)
+        # formal_english - clean, professional, no jargon
         return (
-            f"{item_name} presents as {mood} across {item_category.lower()} offerings. "
-            f"In the context of {time_context} and given the {region_context} location, this item demonstrates consistent value. "
-            f"{attribute_text or 'The attributes align well'}. On balance, I would rate this favorably.{attribute_clause}"
+            f"After using {item_name}, I found it to be {positive_sentiment}. "
+            f"In {time_context} conditions in {region_context}, the functionality held up well. "
+            f"The overall experience met my expectations. "
+            f"In summary, this is {recommendation}."
         )
