@@ -42,6 +42,33 @@ class ReviewGenerationAgent(BaseAgent):
         return state
 
     @classmethod
+    def _extract_style_blueprints(cls, history_texts: list[str]) -> str:
+        """Extract grammatical blueprints from historical reviews for the LLM to mirror."""
+        if not history_texts:
+            return "No historical blueprints available."
+        
+        blueprints = []
+        for i, text in enumerate(history_texts[:3]):
+            text = text.strip()
+            if not text: continue
+            
+            words = text.split()
+            sent_count = max(1, text.count(".") + text.count("!") + text.count("?"))
+            avg_sent_len = len(words) / sent_count
+            
+            style_traits = []
+            if avg_sent_len > 18: style_traits.append("Complex, multi-clausal syntax")
+            elif avg_sent_len < 10: style_traits.append("Short, declarative, punchy sentences")
+            else: style_traits.append("Direct, balanced conversational structure")
+            
+            if any(w in text.lower() for w in ["impeccable", "exquisite", "absolute", "remarkable"]):
+                style_traits.append("High-status adjectives ('Exquisite', 'Impeccable')")
+            
+            blueprints.append(f"Review {i+1} Blueprint: {', '.join(style_traits)}")
+            
+        return "\n".join(blueprints)
+
+    @classmethod
     async def generate(
         cls,
         *,
@@ -237,15 +264,17 @@ Write the review as one natural paragraph."""
                     if cls._looks_like_attribute_dump(review_text, item):
                         raise ValueError("LLM response looked like attribute dumping")
                     
-                    # Predict rating based on history
-                    predicted_rating = cls._predict_rating(user_history, item, simulation)
                     tone_confidence = 0.78
+                    
+                    # Telemetry override for class tier
+                    class_tier = "Premium/Elite" if register == "formal_english" else style_profile['sub_register']
+                    behavioural_basis = f"LLM-generated {class_tier} review for {item.get('name', 'item')}; enforced rating={predicted_rating}"
                     
                     return {
                         "predicted_rating": predicted_rating,
                         "generated_review": review_text,
                         "tone_confidence": tone_confidence,
-                        "behavioural_basis": f"LLM-generated {style_profile['sub_register']} review for {item.get('name', 'item')}",
+                        "behavioural_basis": behavioural_basis,
                         "user_token": user_token,
                         "llm_instrumentation": {
                             "used": True,

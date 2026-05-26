@@ -118,40 +118,27 @@ class SimulationAgent(BaseAgent):
         if found_markers:
             dominant_vocab_style += f" (Markers: {', '.join(set(found_markers[:5]))})"
         
+        # Telemetry: class tier enforcement for basis
+        class_tier = "Premium/Elite" if register == "formal_english" else "Standard/Local"
+        
         time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
         region_context = context.get("region") or context.get("region_tier") or "Lagos"
 
         system_prompt = f"""[CRITICAL SYSTEM REVISION CONSTRAINT: ABSOLUTE VALUE FAITHFULNESS]
 You are acting as the unique human persona: {user_token}. 
 Dominant vocabulary style: {dominant_vocab_style}
+Target Class Tier: {class_tier}
 
-1. TONE & REGISTRY LOCK: You must analyze the vocabulary depth, syntax complexity, and emotional posture of the user's historical reviews. Even in this simulation phase, you must maintain this persona's specific level of refinement.
-2. DO NOT use generic local modifiers like "sha", "omo", "wella", or "very okay" in your reasoning unless those specific tokens are explicitly present in the provided history.
-3. CONTEXTUAL TRANSLATION: Do not let regional parameters ({region_context}, {time_context}) hijack the user's social class or vocabulary. If an elitist critic is in Victoria Island at night, they will perceive and describe the environment using their native luxury-oriented vocabulary.
-4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. If they have a historical average rating of low scores for execution slips, evaluate the current context according to their personal strict standards."""
+1. TONE & REGISTRY LOCK: Maintain the vocabulary depth and syntax complexity of the user's historical profile. Even in your internal reasoning, avoid any "vibe" or "sha" fillers unless the history demands it.
+2. DO NOT use generic local modifiers like "sha", "omo", "wella", or "very okay" unless those specific tokens are explicitly present in the provided history. Banned idioms: "totally my vibe", "top dollar", "you feel me".
+3. CONTEXTUAL TRANSLATION: Do not let regional parameters ({region_context}, {time_context}) hijack the user's social class or vocabulary.
+4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. Evaluate the context through the lens of a {class_tier} user.
 
-        if register == "formal_english":
-            system_prompt += """
-[CRITICAL LINGUISTIC BLOCKLIST]
-The persona you are simulating is a sophisticated, upscale, critical reviewer.
-1. ABSOLUTELY FORBIDDEN TOKENS: Do not use casual conversational fillers or local street slang. Specifically ban: "sha", "you feel me", "wella", "omo", "very okay", "i guess", "make sense".
-2. COMPLEX SYNTAX ONLY: Use clear, structured, elevated vocabulary matching his history (e.g., words like 'unacceptable', 'impeccable', 'subpar', 'exquisite').
-3. AMBIANCE AND REGIONAL FRAMING: Treat Victoria Island not as a casual hang-out spot, but as a premium district. Maintain a high social-status posture throughout the review.
-"""
-
-        system_prompt += f"""
 You are ARCHE's Behavior Simulation Engine. 
 
 Your job is to simulate a user's BRAIN STATE given their interaction history and current context.
 You are not predicting behavior—you are simulating their cognitive state, decision-making process, 
 and behavioral patterns.
-
-Consider:
-1. Past behavioral patterns and affinities
-2. Cognitive biases and decision heuristics evident in their history
-3. Current contextual state (time, device, environment)
-4. Risk tolerance, exploration readiness, purchase likelihood
-5. Language/communication register they use ({register})
 
 Output ONLY valid JSON matching this schema:
 {{
@@ -162,7 +149,7 @@ Output ONLY valid JSON matching this schema:
   "engagement_mode": "high_depth | scanning | quick_check",
   "exploration_readiness": 0.0-1.0,
   "purchase_probability": 0.0-1.0,
-  "behavioral_basis": "brief one-sentence reasoning"
+  "behavioral_basis": "A brief one-sentence reasoning written in the user's class-appropriate tone ({class_tier})."
 }}"""
 
         user_prompt = f"""User interaction history:
