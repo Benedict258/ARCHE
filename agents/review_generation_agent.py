@@ -19,6 +19,7 @@ class ReviewGenerationAgent(BaseAgent):
     _PIDGIN_MARKERS = ("sha", "abi", "sef", "abeg", "na im", "e be like", "naija", "9ja", "oga", "no cap", "fr", "omo", "nah", "mad", "clean", "slaps", "vibe", "it is giving", "unhinged", "chief", "guy", "joor", "ahn", "shey")
     _NIGERIAN_ENGLISH_MARKERS = ("very okay", "too much", "value", "price", "worth it", "not bad", "food", "service", "practical", "quality", "experience", "decent")
     _FORMAL_MARKERS = ("overall", "however", "recommend", "consistent", "research", "thoroughly", "professional")
+    _ATTRIBUTE_LEAK_MARKERS = ("speed settings", "power consumption", "remote control", "item category", "price tier", "attributes")
 
     async def run(self, state: AgentState) -> AgentState:
         return state
@@ -42,17 +43,59 @@ class ReviewGenerationAgent(BaseAgent):
 
             sim_agent = SimulationAgent()
             if sim_agent.llm is not None and sim_agent.llm_provider:
-                # Extract calibration from register detection
                 history_texts = [str(entry.get("review_text") or "") for entry in user_history]
                 register = cls.detect_register(history_texts)
                 calibration = cls.get_nigerian_calibration(register)
                 
-                # Extract style metrics but NOT content
                 style = cls._extract_style_metrics(user_history)
-                history_snippets = "\n".join([f"- {h.get('review_text', '')[:60]}..." for h in user_history[:3]])
+                # Build a compact heuristic brief to hand off to the LLM.
+                if simulation is not None and hasattr(simulation, "behavioral_snapshot"):
+                    snapshot = simulation.behavioral_snapshot
+                    snapshot_dict = {
+                        "current_intent": getattr(snapshot, "current_intent", "exploratory_browsing"),
+                        "preference_cluster": getattr(snapshot, "preference_cluster", "A"),
+                        "top_affinities": list(getattr(snapshot, "top_affinities", []) or []),
+                        "rejection_signals": list(getattr(snapshot, "rejection_signals", []) or []),
+                        "engagement_mode": getattr(snapshot, "engagement_mode", "scanning"),
+                        "exploration_readiness": float(getattr(snapshot, "exploration_readiness", 0.5)),
+                        "purchase_probability": float(getattr(snapshot, "purchase_probability", 0.3)),
+                    }
+                else:
+                    snapshot_dict = {
+                        "current_intent": "exploratory_browsing",
+                        "preference_cluster": "A",
+                        "top_affinities": [],
+                        "rejection_signals": [],
+                        "engagement_mode": "scanning",
+                        "exploration_readiness": 0.5,
+                        "purchase_probability": 0.3,
+                    }
+
+                if hasattr(sim_agent, "build_generation_brief"):
+                    memory_payload = {"events": [{"review_text": h.get("review_text") or ""} for h in user_history]}
+                    heuristic_brief = sim_agent.build_generation_brief(
+                        user_token=user_token,
+                        memory_payload=memory_payload,
+                        context=context,
+                        snapshot={**snapshot_dict, "behavioral_basis": getattr(simulation, "simulation_basis", "")},
+                    )
+                else:
+                    heuristic_brief = {
+                        "user_token": user_token,
+                        "history_count": len(user_history),
+                        "current_intent": snapshot_dict["current_intent"],
+                        "preference_cluster": snapshot_dict["preference_cluster"],
+                        "top_affinities": snapshot_dict["top_affinities"],
+                        "rejection_signals": snapshot_dict["rejection_signals"],
+                        "engagement_mode": snapshot_dict["engagement_mode"],
+                        "exploration_readiness": snapshot_dict["exploration_readiness"],
+                        "purchase_probability": snapshot_dict["purchase_probability"],
+                        "behavioral_basis": getattr(simulation, "simulation_basis", ""),
+                        "context_summary": f"{context.get('time_of_day') or context.get('time_bucket') or 'daytime'} / {context.get('region') or context.get('region_tier') or 'here'}",
+                    }
                 
-                # Build the refined prompt following user specifications
-                system_prompt = f"""You are simulating a specific user persona to generate a highly realistic review for a new item.
+                # The LLM does the phrasing; heuristics decide the substance.
+                system_prompt = f"""You are writing a single review in the user's authentic voice.
 
 USER REGISTER & STYLE CALIBRATION:
 {calibration}
@@ -69,19 +112,15 @@ CRITICAL EXECUTION RULES:
 4. Do NOT use robotic meta-phrases unless the persona uses them natively.
 Respond ONLY with the review text itself, no JSON, no commentary."""
 
-                time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
-                region_context = context.get("region") or context.get("region_tier") or "your area"
-                
-                user_prompt = f"""Generate a review for:
-- Item: {item.get('name', 'this item')}
+                user_prompt = f"""Heuristic brief:
+{heuristic_brief}
+
+Item to review:
+- Name: {item.get('name', 'this item')}
 - Category: {item.get('category', 'general')}
 - Key attributes: {ReviewGenerationAgent._humanize_attributes(dict(item.get('attributes') or {}))}
-- Context: {time_context} in {region_context}
 
-Historical style references:
-{history_snippets}
-
-Now write the review:"""
+Write the review as one natural paragraph."""
 
                 try:
                     logger.info(f"review_generation llm_call_start provider={sim_agent.llm_provider} model={sim_agent.groq_model if sim_agent.llm_provider == 'groq' else 'claude-3-5-sonnet-20241022'}")
@@ -92,6 +131,9 @@ Now write the review:"""
                     review_text = str(content).strip()
                     if review_text.startswith(('"', "'")):
                         review_text = review_text.strip('"\'')
+
+                    if cls._looks_like_attribute_dump(review_text, item):
+                        raise ValueError("LLM response looked like attribute dumping")
                     
                     # Predict rating based on history
                     predicted_rating = cls._predict_rating(user_history, item, simulation)
@@ -162,6 +204,24 @@ Now write the review:"""
                 "model": None,
             },
         }
+
+    @staticmethod
+    def _looks_like_attribute_dump(review_text: str, item: dict[str, Any]) -> bool:
+        """Reject text that looks like raw attribute listing or key/value dumping."""
+        text = review_text.lower()
+        if not text:
+            return True
+
+        attribute_keys = [str(key).replace("_", " ").lower() for key in (item.get("attributes") or {}).keys()]
+        if any(marker in text for marker in ReviewGenerationAgent._ATTRIBUTE_LEAK_MARKERS):
+            return True
+        if any(key and key in text for key in attribute_keys):
+            return True
+        if text.count(":") >= 2:
+            return True
+        if text.count(" is ") >= 2 and len(text.split()) < 40:
+            return True
+        return False
 
     @classmethod
     def detect_register(cls, history_texts: list[str]) -> str:

@@ -346,6 +346,38 @@ Return only JSON."""
         }
 
     @staticmethod
+    def build_generation_brief(
+        *,
+        user_token: str,
+        memory_payload: dict[str, Any],
+        context: dict[str, Any],
+        snapshot: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build a compact behavioral brief for downstream review generation.
+
+        This is the heuristic-to-LLM bridge: it preserves signal, strips noise,
+        and gives the review generator a single structured summary to work from.
+        """
+        events = memory_payload.get("events", []) if isinstance(memory_payload, dict) else []
+        history_count = len(events)
+        time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
+        region_context = context.get("region") or context.get("region_tier") or "here"
+
+        return {
+            "user_token": user_token,
+            "history_count": history_count,
+            "current_intent": snapshot.get("current_intent", "exploratory_browsing"),
+            "preference_cluster": snapshot.get("preference_cluster", "A"),
+            "top_affinities": list(snapshot.get("top_affinities", []) or []),
+            "rejection_signals": list(snapshot.get("rejection_signals", []) or []),
+            "engagement_mode": snapshot.get("engagement_mode", "scanning"),
+            "exploration_readiness": float(snapshot.get("exploration_readiness", 0.5)),
+            "purchase_probability": float(snapshot.get("purchase_probability", 0.3)),
+            "behavioral_basis": snapshot.get("behavioral_basis", ""),
+            "context_summary": f"{time_context} / {region_context}",
+        }
+
+    @staticmethod
     def _fallback_simulate(user_token: str, memory_payload: dict[str, Any],
                           context: dict[str, Any]) -> dict[str, Any]:
         """Heuristic fallback when LLM is unavailable."""
