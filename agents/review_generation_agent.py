@@ -112,15 +112,87 @@ class ReviewGenerationAgent(BaseAgent):
                         "context_summary": f"{context.get('time_of_day') or context.get('time_bucket') or 'daytime'} / {context.get('region') or context.get('region_tier') or 'here'}",
                     }
                 
+                # Extract register and stylistic markers
+                history_texts = [str(entry.get("review_text") or "") for entry in user_history]
+                style_profile = cls._extract_style_profile(history_texts)
+                register = style_profile["register"]
+                calibration = cls.get_nigerian_calibration(register)
+                
+                # Extract stylistic markers for tighter guardrailing
+                all_text = " ".join(history_texts).lower()
+                elitist_adjectives = ["impeccable", "exquisite", "remarkable", "sluggish", "subpar", "unacceptable", "sophisticated", "elegant", "refined", "concierge", "meticulous", "ambiance"]
+                found_markers = [m for m in elitist_adjectives if m in all_text]
+                dominant_vocab_style = "Premium, Elitist, Formal Corporate English" if register == "formal_english" else "Casual, Mixed, Local English"
+                if found_markers:
+                    dominant_vocab_style += f" (Markers: {', '.join(set(found_markers[:5]))})"
+
+                style = cls._extract_style_metrics(user_history)
+                # Build a compact heuristic brief to hand off to the LLM.
+                if simulation is not None and hasattr(simulation, "behavioral_snapshot"):
+                    snapshot = simulation.behavioral_snapshot
+                    snapshot_dict = {
+                        "current_intent": getattr(snapshot, "current_intent", "exploratory_browsing"),
+                        "preference_cluster": getattr(snapshot, "preference_cluster", "A"),
+                        "top_affinities": list(getattr(snapshot, "top_affinities", []) or []),
+                        "rejection_signals": list(getattr(snapshot, "rejection_signals", []) or []),
+                        "engagement_mode": getattr(snapshot, "engagement_mode", "scanning"),
+                        "exploration_readiness": float(getattr(snapshot, "exploration_readiness", 0.5)),
+                        "purchase_probability": float(getattr(snapshot, "purchase_probability", 0.3)),
+                    }
+                else:
+                    snapshot_dict = {
+                        "current_intent": "exploratory_browsing",
+                        "preference_cluster": "A",
+                        "top_affinities": [],
+                        "rejection_signals": [],
+                        "engagement_mode": "scanning",
+                        "exploration_readiness": 0.5,
+                        "purchase_probability": 0.3,
+                    }
+
+                if hasattr(sim_agent, "build_generation_brief"):
+                    memory_payload = {"events": [{"review_text": h.get("review_text") or ""} for h in user_history]}
+                    heuristic_brief = sim_agent.build_generation_brief(
+                        user_token=user_token,
+                        memory_payload=memory_payload,
+                        context=context,
+                        snapshot={**snapshot_dict, "behavioral_basis": getattr(simulation, "simulation_basis", "")},
+                    )
+                else:
+                    heuristic_brief = {
+                        "user_token": user_token,
+                        "history_count": len(user_history),
+                        "current_intent": snapshot_dict["current_intent"],
+                        "preference_cluster": snapshot_dict["preference_cluster"],
+                        "top_affinities": snapshot_dict["top_affinities"],
+                        "rejection_signals": snapshot_dict["rejection_signals"],
+                        "engagement_mode": snapshot_dict["engagement_mode"],
+                        "exploration_readiness": snapshot_dict["exploration_readiness"],
+                        "purchase_probability": snapshot_dict["purchase_probability"],
+                        "behavioral_basis": getattr(simulation, "simulation_basis", ""),
+                        "context_summary": f"{context.get('time_of_day') or context.get('time_bucket') or 'daytime'} / {context.get('region') or context.get('region_tier') or 'here'}",
+                    }
+                
                 # The LLM does the phrasing; heuristics decide the substance.
                 system_prompt = f"""[CRITICAL SYSTEM REVISION CONSTRAINT: ABSOLUTE VALUE FAITHFULNESS]
 You are acting as the unique human persona: {user_token}. 
+Dominant vocabulary style: {dominant_vocab_style}
 
 1. TONE & REGISTRY LOCK: You must analyze the vocabulary depth, syntax complexity, and emotional posture of the user's historical reviews. If the user writes in ultra-premium, formal, critical English, your generated text MUST match that level of refinement exactly. 
 2. DO NOT use generic local modifiers like "sha", "omo", "wella", or "very okay" unless those specific tokens are explicitly present in the provided history.
 3. CONTEXTUAL TRANSLATION: Do not let regional parameters ({context.get('region') or 'Lagos'}, {context.get('time_of_day') or 'daytime'}) hijack the user's social class or vocabulary. If an elitist critic is in Victoria Island at night, they will describe the environment using their native vocabulary (e.g., "The ambiance was sophisticated, well-complemented by a strictly enforced elegant dress code") rather than casual chatty language.
-4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. If they have a historical average rating of low scores for execution slips, a 15-minute wait time should be evaluated according to their personal strict standards.
+4. BEHAVIORAL CONSISTENCY: Maintain their critical disposition. If they have a historical average rating of low scores for execution slips, a 15-minute wait time should be evaluated according to their personal strict standards."""
 
+                if register == "formal_english":
+                    system_prompt += """
+[CRITICAL LINGUISTIC BLOCKLIST]
+The persona you are simulating is a sophisticated, upscale, critical reviewer.
+1. ABSOLUTELY FORBIDDEN TOKENS: Do not use casual conversational fillers or local street slang. Specifically ban: "sha", "you feel me", "wella", "omo", "very okay", "i guess", "make sense".
+2. COMPLEX SYNTAX ONLY: Use clear, structured, elevated vocabulary matching his history (e.g., words like 'unacceptable', 'impeccable', 'subpar', 'exquisite').
+3. AMBIANCE AND REGIONAL FRAMING: Treat Victoria Island not as a casual hang-out spot, but as a premium district. Maintain a high social-status posture throughout the review.
+"""
+
+                system_prompt += f"""
 USER REGISTER & STYLE CALIBRATION:
 {calibration}
 
