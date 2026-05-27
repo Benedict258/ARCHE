@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import time
+import asyncio
 from dataclasses import dataclass
 from urllib.parse import quote_plus
 from typing import Any
@@ -66,20 +67,23 @@ class LiveSearchService:
 
         category = (category or "general").strip() or "general"
         context = context or {}
+        
+        # Heuristic fallback defined first to ensure it's available
+        city = str(context.get("region") or context.get("region_tier") or "Nigeria").strip()
+        if category in {"food", "restaurant", "restaurants", "nigerian_cuisine"}:
+            fallback_query = f"best {category} in {city}"
+        elif category in {"books", "fiction", "literature"}:
+            fallback_query = f"best {category} recommendations"
+        else:
+            fallback_query = f"top {category} recommendations"
+            
         if self.llm_agent.llm is None:
-            city = str(context.get("region") or context.get("region_tier") or "Nigeria").strip()
-            if category in {"food", "restaurant", "restaurants", "nigerian_cuisine"}:
-                query = f"best {category} in {city}"
-            elif category in {"books", "fiction", "literature"}:
-                query = f"best {category} recommendations"
-            else:
-                query = f"top {category} recommendations"
             self.logger.info(
                 "live_search_query_planned source=heuristic llm_used=false query=%s category=%s",
-                query,
+                fallback_query,
                 category,
             )
-            return {"source": "heuristic", "query": query, "category": category}
+            return {"source": "heuristic", "query": fallback_query, "category": category}
 
         history_snippet = ""
         if user_history:
@@ -96,48 +100,77 @@ class LiveSearchService:
             f"Recent history: {history_snippet}\n"
             "Return a search query suitable for Serper web search."
         )
-        try:
-            started = time.perf_counter()
-            content = await self.llm_agent.call_llm(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.1)
-            parsed = json.loads(content)
-            if isinstance(parsed, dict) and parsed.get("query"):
-                elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-                self.logger.info(
-                    "live_search_query_planned source=llm llm_used=true provider=%s model=%s latency_ms=%s query=%s category=%s",
-                    self.llm_agent.llm_provider or "unknown",
-                    self.llm_agent.groq_model if self.llm_agent.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
-                    elapsed_ms,
-                    str(parsed.get("query") or ""),
-                    str(parsed.get("category") or category),
-                )
-                return {
-                    "source": str(parsed.get("source") or "llm").strip() or "llm",
-                    "query": str(parsed.get("query")).strip(),
-                    "category": str(parsed.get("category") or category).strip() or category,
-                }
-        except Exception as exc:
-            self.logger.exception("live_search_query_planner_error error=%s", str(exc))
-            pass
+        
+        # Added retry for build_query to handle transient LLM connection issues
+        max_retries = 1
+        for attempt in range(max_retries + 1):
+            try:
+                started = time.perf_counter()
+                content = await self.llm_agent.call_llm(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.1)
+                
+                # Robust JSON extraction
+                json_str = content.strip()
+                if "```json" in json_str:
+                    json_str = json_str.split("```json", 1)[1].split("```", 1)[0]
+                elif "```" in json_str:
+                    json_str = json_str.split("```", 1)[1].split("```", 1)[0]
+                
+                parsed = json.loads(json_str.strip())
+                if isinstance(parsed, dict) and parsed.get("query"):
+                    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+                    self.logger.info(
+                        "live_search_query_planned source=llm llm_used=true provider=%s model=%s latency_ms=%s query=%s category=%s",
+                        self.llm_agent.llm_provider or "unknown",
+                        self.llm_agent.groq_model if self.llm_agent.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
+                        elapsed_ms,
+                        str(parsed.get("query") or ""),
+                        str(parsed.get("category") or category),
+                    )
+                    return {
+                        "source": str(parsed.get("source") or "llm").strip() or "llm",
+                        "query": str(parsed.get("query")).strip(),
+                        "category": str(parsed.get("category") or category).strip() or category,
+                    }
+            except Exception as exc:
+                if attempt < max_retries:
+                    self.logger.warning("Live search query planner attempt %d failed: %s. Retrying...", attempt + 1, str(exc))
+                    await asyncio.sleep(1)
+                    continue
+                self.logger.exception("live_search_query_planner_error error=%s", str(exc))
 
-        city = str(context.get("region") or context.get("region_tier") or "Nigeria").strip()
-        query = f"best {category} in {city}"
         self.logger.info(
             "live_search_query_planned source=fallback llm_used=false query=%s category=%s",
-            query,
+            fallback_query,
             category,
         )
-        return {"source": "fallback", "query": query, "category": category}
+        return {"source": "fallback", "query": fallback_query, "category": category}
 
     async def search(self, query: str, num_results: int = 10) -> list[LiveSearchResult]:
         if not query.strip():
             return []
 
-        if self.serper_api_key:
-            return await self._search_serper(query=query, num_results=num_results)
+        # Added global retry for search to handle transient network issues
+        max_retries = 2
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                if self.serper_api_key:
+                    return await self._search_serper(query=query, num_results=num_results)
 
-        if self.enable_fallback_websearch:
-            self.logger.info("live_search_provider_selected provider=duckduckgo_fallback")
-            return await self._search_duckduckgo(query=query, num_results=num_results)
+                if self.enable_fallback_websearch:
+                    self.logger.info("live_search_provider_selected provider=duckduckgo_fallback")
+                    return await self._search_duckduckgo(query=query, num_results=num_results)
+                
+                return []
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+                last_exc = e
+                if attempt < max_retries:
+                    self.logger.warning("Live search attempt %d failed: %s. Retrying...", attempt + 1, str(e))
+                    await asyncio.sleep(1)
+                    continue
+                raise e
+            except Exception as e:
+                raise e
 
         return []
 

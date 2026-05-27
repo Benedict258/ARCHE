@@ -306,7 +306,7 @@ function renderFormattedResponse(payload){
     if(payload == null) return ''
     // Plain string
     if(typeof payload === 'string'){
-      return `<p>${escapeHtml(payload)}</p>`
+      return `<div style="white-space: pre-wrap; font-family: monospace;">${escapeHtml(payload)}</div>`
     }
 
     // Task A response format

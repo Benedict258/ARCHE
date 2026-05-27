@@ -280,10 +280,11 @@ def test_all_together():
         response.raise_for_status()
         sim_result = response.json()
         
+        basis = sim_result.get("behavioural_basis") or sim_result.get("behavioral_basis") or "unspecified"
+        
         print(f"\n✓ Simulation successful:")
         print(f"  - Rating: {sim_result['predicted_rating']}/5")
-        print(f"  - Context: {sim_result['behavioral_basis']}")
-        print(f"  - Context: {sim_result['behavioural_basis']}")
+        print(f"  - Context: {basis}")
         print(f"  - Review: {sim_result['generated_review'][:80]}...")
         return True
         

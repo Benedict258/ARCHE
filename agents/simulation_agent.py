@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import asyncio
 from typing import Any
 
 import httpx
@@ -319,26 +320,41 @@ Return only JSON."""
             "temperature": temperature,
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Added retry logic for robustness against transient connection/DNS errors
+        max_retries = 2
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.groq_api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    choices = data.get("choices") or []
+                    if not choices:
+                        raise RuntimeError("Groq response has no choices")
+                    message = choices[0].get("message") or {}
+                    content = message.get("content")
+                    if not content:
+                        raise RuntimeError("Groq response has empty message content")
+                    return str(content)
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+                last_exc = e
+                if attempt < max_retries:
+                    self.logger.warning("Groq connection attempt %d failed: %s. Retrying...", attempt + 1, str(e))
+                    await asyncio.sleep(1) # short backoff
+                continue
+            except Exception as e:
+                raise e
 
-        choices = data.get("choices") or []
-        if not choices:
-            raise RuntimeError("Groq response has no choices")
-        message = choices[0].get("message") or {}
-        content = message.get("content")
-        if not content:
-            raise RuntimeError("Groq response has empty message content")
-        return str(content)
+        raise last_exc
 
     async def _simulate_with_groq(self, system_prompt: str, user_prompt: str) -> str:
         if not self.groq_api_key:
@@ -353,26 +369,41 @@ Return only JSON."""
             "temperature": 0.2,
         }
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Added retry logic for robustness against transient connection/DNS errors
+        max_retries = 2
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.groq_api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    choices = data.get("choices") or []
+                    if not choices:
+                        raise RuntimeError("Groq response has no choices")
+                    message = choices[0].get("message") or {}
+                    content = message.get("content")
+                    if not content:
+                        raise RuntimeError("Groq response has empty message content")
+                    return str(content)
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+                last_exc = e
+                if attempt < max_retries:
+                    self.logger.warning("Groq simulation attempt %d failed: %s. Retrying...", attempt + 1, str(e))
+                    await asyncio.sleep(1) # short backoff
+                continue
+            except Exception as e:
+                raise e
 
-        choices = data.get("choices") or []
-        if not choices:
-            raise RuntimeError("Groq response has no choices")
-        message = choices[0].get("message") or {}
-        content = message.get("content")
-        if not content:
-            raise RuntimeError("Groq response has empty message content")
-        return str(content)
+        raise last_exc
 
     @staticmethod
     def _normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
