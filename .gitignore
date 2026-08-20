@@ -69,14 +69,14 @@ dmypy.json
 
 # Project specific
 data/last_recommend.json
-data/local_vectors.json
-memory_history.json
 *.db
 
 # Generated datasets / evaluation artifacts
 data/*_raw/
 data/*_processed/
 data/evaluation/*.json
+data/puretest/*.jsonl
+data/puretest/*.json
 demo/recordings/*.json
 evaluation_results.json
 test_report.json

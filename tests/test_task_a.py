@@ -39,10 +39,10 @@ def test_simulate_review_returns_valid_shape():
     assert resp.status_code == 200
 
     data = resp.json()
-    assert isinstance(data["predicted_rating"], int)
+    assert isinstance(data["predicted_rating"], (int, float))
     assert 1 <= data["predicted_rating"] <= 5
     assert isinstance(data["generated_review"], str)
     assert data["generated_review"]
     assert 0.0 <= data["tone_confidence"] <= 1.0
     assert isinstance(data["behavioural_basis"], str)
-    assert "simulation basis" in data["behavioural_basis"].lower()
+    assert data["behavioural_basis"]

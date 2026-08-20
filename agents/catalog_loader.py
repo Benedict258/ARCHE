@@ -1,79 +1,23 @@
 """
 Shared catalog loader for evaluation and API.
-Loads processed Yelp catalog from JSONL and caches it.
+
+Delegates to `data.dataset_loader.UnifiedDatasetLoader`, which normalizes
+Yelp/Amazon/Goodreads sources uniformly — this used to hand-parse only
+`data/yelp_processed/*.json`, which meant real data from any other source
+was silently invisible to the live recommendation path. Falls back to a
+small hardcoded demo catalog only when no real dataset is present at all.
 """
 
-import json
-from pathlib import Path
 from typing import Any
 
-_CATALOG_CACHE: dict[str, Any] | None = None
+_CATALOG_CACHE: dict[str, dict[str, Any]] | None = None
 
 
-def load_catalog(refresh: bool = False) -> dict[str, dict[str, Any]]:
-    """
-    Load catalog from processed yelp JSONL.
-    Caches in memory for fast repeated access.
-    Returns: dict[item_id] -> {item_id, item_name, item_category, price_tier, ...}
-    """
-    global _CATALOG_CACHE
-    
-    if _CATALOG_CACHE and not refresh:
-        return _CATALOG_CACHE
-    
-    catalog: dict[str, dict[str, Any]] = {}
-    
-    # Load from train and test splits
-    for split_name in ["train", "test"]:
-        path = Path(f"data/yelp_processed/{split_name}.json")
-        if not path.exists():
-            continue
-        
-        with path.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                
-                item_id = row.get("business_id") or row.get("item_id") or row.get("review_id")
-                if not item_id or item_id in catalog:
-                    continue
-                
-                # Extract primary category from comma-separated categories string
-                categories_str = row.get("categories") or ""
-                if isinstance(categories_str, list):
-                    primary_category = categories_str[0] if categories_str else "general"
-                elif isinstance(categories_str, str):
-                    cats = [c.strip() for c in categories_str.split(",")]
-                    primary_category = cats[0] if cats else "general"
-                else:
-                    primary_category = "general"
-                
-                # Normalize category to lowercase and replace spaces/special chars
-                primary_category = primary_category.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("&", "and")
-                
-                # Build normalized item record
-                item = {
-                    "item_id": item_id,
-                    "item_name": row.get("name") or row.get("business_name") or row.get("item_name") or item_id[:20],
-                    "item_category": primary_category or "general",
-                    "price_tier": row.get("price_tier") or "mid",
-                    "avg_rating": float(row.get("stars_y") or row.get("avg_rating", 3.5)),
-                    "review_count": int(row.get("review_count", 1)),
-                }
-                catalog[item_id] = item
-    
-    _CATALOG_CACHE = catalog
-    # If processed catalog is empty, provide a small demo fallback so the API
-    # can return recommendations even when datasets are not present in the repo.
-    if not catalog:
-        demo_items = [
-            {"item_id": f"demo_food_{i}", "item_name": name, "item_category": cat, "price_tier": "mid", "avg_rating": 4.0, "review_count": 10}
-            for i, (name, cat) in enumerate([
+def _demo_catalog() -> dict[str, dict[str, Any]]:
+    demo_items = [
+        {"item_id": f"demo_food_{i}", "item_name": name, "item_category": cat, "price_tier": "mid", "description": "", "avg_rating": 4.0, "review_count": 10}
+        for i, (name, cat) in enumerate(
+            [
                 ("Suya Spot", "food"),
                 ("Jollof House", "nigerian_cuisine"),
                 ("Palmwine Diner", "food"),
@@ -84,12 +28,45 @@ def load_catalog(refresh: bool = False) -> dict[str, dict[str, Any]]:
                 ("Local Grill", "fast_food"),
                 ("Cozy Cafe", "cafe"),
                 ("Market Bites", "street_food"),
-            ], start=1)
-        ]
-        for item in demo_items:
-            catalog[item["item_id"]] = item
-        _CATALOG_CACHE = catalog
-    return catalog
+            ],
+            start=1,
+        )
+    ]
+    return {item["item_id"]: item for item in demo_items}
+
+
+def load_catalog(refresh: bool = False, limit_per_source: int = 2000) -> dict[str, dict[str, Any]]:
+    """Load the recommendation catalog from whatever real datasets are present.
+
+    Caches in memory for fast repeated access. Returns: dict[item_id] -> item.
+    """
+    global _CATALOG_CACHE
+
+    if _CATALOG_CACHE and not refresh:
+        return _CATALOG_CACHE
+
+    from data.dataset_loader import UnifiedDatasetLoader
+
+    loader = UnifiedDatasetLoader()
+    rows = loader.load_catalog(limit_per_source=limit_per_source)
+
+    catalog: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item_id = row.get("key")
+        if not item_id:
+            continue
+        catalog[item_id] = {
+            "item_id": item_id,
+            "item_name": row.get("item_name") or item_id,
+            "item_category": row.get("item_category") or "general",
+            "price_tier": row.get("price_tier") or "mid",
+            "description": row.get("description") or "",
+            "source": row.get("source"),
+            "metadata": row.get("metadata") or {},
+        }
+
+    _CATALOG_CACHE = catalog or _demo_catalog()
+    return _CATALOG_CACHE
 
 
 def get_catalog_list(n_items: int | None = None) -> list[dict[str, Any]]:

@@ -4,7 +4,6 @@ import sys
 sys.path.insert(0, '.')
 
 from agents.review_generation_agent import ReviewGenerationAgent
-from agents.simulation_builder import build_cold_start_simulation
 
 # Test data
 history = [

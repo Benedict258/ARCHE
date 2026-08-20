@@ -1,8 +1,7 @@
-"""Example usage of ARCHE SDK and Orchestrator."""
+"""Example usage of the ARCHE SDK client against a running API instance."""
 
 import asyncio
 from sdk.client import ArcheClient
-from orchestrator.pipeline import ArchePipeline
 
 
 async def example_sdk_usage():
@@ -56,39 +55,6 @@ async def example_sdk_usage():
         print(f"Error: {e}")
 
 
-async def example_orchestrator_usage():
-    """Example of using the ARCHE Orchestrator for full pipeline."""
-    pipeline = ArchePipeline("http://127.0.0.1:8000")
-
-    try:
-        state = await pipeline.execute_full_flow(
-            user_token="user_pipeline_001",
-            signal={
-                "event_type": "view",
-                "item_category": "electronics",
-                "engagement_depth": 0.6,
-            },
-            context={
-                "time_bucket": "afternoon",
-                "device_class": "desktop",
-                "entry_point": "search",
-            },
-        )
-
-        print(f"Pipeline execution complete")
-        print(f"Ingest status: {state.ingest_response}")
-        print(f"Simulation basis: {state.simulation_response.get('simulation_basis') if state.simulation_response else 'N/A'}")
-        print(f"Recommendations: {len(state.recommendation_response.get('recommendations', [])) if state.recommendation_response else 0}")
-        if state.errors:
-            print(f"Errors: {state.errors}")
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-
 if __name__ == "__main__":
     print("=== ARCHE SDK Example ===")
     asyncio.run(example_sdk_usage())
-
-    print("\n=== ARCHE Orchestrator Example ===")
-    asyncio.run(example_orchestrator_usage())

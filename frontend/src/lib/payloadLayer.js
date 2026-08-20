@@ -40,7 +40,6 @@ export function buildTaskARequest({inputMode, textInput, jsonInput, entries, use
       time_of_day: entries.timeOfDay || 'evening',
       region: entries.region || 'Lagos'
     },
-    forced_rating: entries.forcedRating ? Number(entries.forcedRating) : undefined,
     output_format: 'json'
   }
 }

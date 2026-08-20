@@ -97,10 +97,10 @@ const Landing = () => {
             <h2>Agentic Infrastructure</h2>
             <p className="muted">Built as enterprise infrastructure for African e-commerce. Scalable, modular, and grounded in real datasets.</p>
             <div className="tech-grid">
-              <div className="tech">LangGraph Orchestration</div>
+              <div className="tech">Multi-Agent Orchestration</div>
               <div className="tech">Groq (Llama 3.3 70B)</div>
               <div className="tech">FastAPI & Pydantic V2</div>
-              <div className="tech">Local Vector Memory</div>
+              <div className="tech">MongoDB + Real Embeddings</div>
             </div>
           </div>
         </section>
@@ -116,7 +116,7 @@ const Landing = () => {
       </main>
 
       <footer className="footer" style={{padding: '40px 20px', borderTop: '1px solid var(--border-color)'}}>
-        <p>&copy; 2026 ARCHE Intelligence Layer • DSN x BCT LLM Agent Challenge</p>
+        <p>&copy; 2026 ARCHE Intelligence Layer</p>
       </footer>
     </div>
   )

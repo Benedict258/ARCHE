@@ -94,6 +94,24 @@ ARCHE provides two complementary APIs that work in tandem:
 - Query planning via LLM (what to search for given user interests)
 - Seamless merging of memory-based + live results
 
+### 🛡️ Guardrails
+
+There's no auth yet (deliberately deferred), so every guardrail below protects an anonymous public API — per-IP rather than per-user. All are env-tunable, all default on:
+
+| Guardrail | Default | Env var |
+| --- | --- | --- |
+| Rate limit — LLM/cost-touching endpoints (`/v1/simulate-review`, `/v1/recommend`) | 20/minute per IP | `ARCHE_RATE_LIMIT_EXPENSIVE` |
+| Rate limit — DB-only endpoints (`/v1/ingest`, `/v1/simulate`, `/v1/explain`) | 60/minute per IP | `ARCHE_RATE_LIMIT_STANDARD` |
+| LLM call budget (Groq/Anthropic) | 60/minute, process-wide | `ARCHE_LLM_BUDGET_PER_MINUTE` |
+| Embedding call budget (Voyage) | 60/minute, process-wide | `ARCHE_EMBEDDING_BUDGET_PER_MINUTE` |
+| Live search call budget (Serper/DuckDuckGo) | 30/minute, process-wide | `ARCHE_LIVE_SEARCH_BUDGET_PER_MINUTE` |
+| Max request body size | 1 MB | `ARCHE_MAX_BODY_BYTES` |
+| Max `n` on `/v1/recommend` | 50 | — (Pydantic field constraint) |
+| Max `item_pool` / history list length | 200 items | — (Pydantic field constraint) |
+| Max `raw_input` length | 4000 chars | — (Pydantic field constraint) |
+
+Rate limits return `429`; an exhausted LLM/embedding/search budget doesn't error the request — it falls back to the same heuristic path already used when a provider key isn't configured (see `agents/call_budget.py`), and shows up as a `budget_exceeded` outcome on the matching Prometheus counter at `/metrics`. Health/readiness/metrics endpoints are exempt from rate limiting so monitoring never gets throttled. `/v1/ready` also reports whether MongoDB is reachable.
+
 ---
 
 ## Architecture

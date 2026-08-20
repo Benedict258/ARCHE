@@ -1,9 +1,10 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.rate_limit import limiter, RATE_LIMIT_EXPENSIVE
 from api.request_repair import repair_payload_from_text
 
 router = APIRouter()
@@ -13,7 +14,7 @@ class ReviewHistoryItem(BaseModel):
     """Single prior review used to simulate the user's taste profile."""
 
     model_config = ConfigDict(populate_by_name=True)
-    
+
     item_name: str
     item_category: str = Field(alias='category')
     rating: float
@@ -36,7 +37,7 @@ class ItemDetails(BaseModel):
 class UserPersona(BaseModel):
     user_id: str | None = None
     user_token: str | None = None
-    review_history: list[ReviewHistoryItem] = Field(default_factory=list)
+    review_history: list[ReviewHistoryItem] = Field(default_factory=list, max_length=200)
 
 
 class SimulateReviewRequest(BaseModel):
@@ -71,6 +72,7 @@ class SimulateReviewRequest(BaseModel):
     user_token: str | None = Field(default=None, description="Optional user token if not using user_persona.")
     user_history: list[ReviewHistoryItem] = Field(
         default_factory=list,
+        max_length=200,
         description="Paste prior reviews here, or use user_persona.review_history.",
     )
     item: ItemDetails | None = Field(default=None, description="Item to simulate a review for.")
@@ -80,22 +82,15 @@ class SimulateReviewRequest(BaseModel):
     )
     user_persona: UserPersona | None = Field(
         default=None,
-        description="Preferred judge-friendly nesting for user identity and review history.",
+        description="Preferred nesting for user identity and review history.",
     )
     item_details: ItemDetails | None = Field(
         default=None,
         description="Alternate item field accepted by the handler.",
     )
-    forced_rating: int | None = Field(
-        default=None,
-        description="Explicitly set the target rating (1-5) for evaluation testing.",
-    )
-    target_rating: int | None = Field(
-        default=None,
-        description="Alias for forced_rating; explicitly set the target rating (1-5).",
-    )
     raw_input: str | None = Field(
         default=None,
+        max_length=4000,
         description="Paste free text or malformed JSON here; the server will repair it into valid JSON.",
     )
     output_format: str = Field(
@@ -109,6 +104,7 @@ class SimulateReviewResponse(BaseModel):
     generated_review: str
     tone_confidence: float
     behavioural_basis: str
+    llm_instrumentation: Dict[str, Any]
 
 
 def _normalise_context(context: dict[str, Any]) -> dict[str, Any]:
@@ -120,13 +116,11 @@ def _normalise_context(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@router.post("/v1/simulate-review")
-@router.post("/api/v1/simulate-review")
-async def simulate_review(payload: SimulateReviewRequest, http_request: Request):
+@router.post("/v1/simulate-review", response_model=SimulateReviewResponse, response_model_exclude_none=False)
+@router.post("/api/v1/simulate-review", response_model=SimulateReviewResponse, response_model_exclude_none=False)
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
+async def simulate_review(payload: SimulateReviewRequest, request: Request):
     """Task A: route request through orchestrator -> simulation agent -> review generation agent.
-
-    Returns a submission-friendly JSON contract that includes both the existing
-    internal fields and the HackAlign-friendly aliases `confidence` and `reasoning`.
 
     Swagger tips:
     - Use `user_persona.review_history` for normal testing.
@@ -137,14 +131,9 @@ async def simulate_review(payload: SimulateReviewRequest, http_request: Request)
     from orchestrator import LangGraphStyleOrchestrator
 
     _ensure_app_state()
-    agent_graph: LangGraphStyleOrchestrator = http_request.app.state.agent_graph
+    agent_graph: LangGraphStyleOrchestrator = request.app.state.agent_graph
 
-    # Explicit input verification log
-    if payload.forced_rating is not None or payload.target_rating is not None:
-        print(f"📥 RECEIVED TARGET OVERRIDE RATING: {payload.forced_rating or payload.target_rating}")
-
-    # Accept either the strict shape or the HackAlign judge shape that nests a user_persona object.
-
+    # Accept either the strict shape or a shape that nests a user_persona object.
     if payload.raw_input and not payload.user_persona and not payload.user_history and not payload.item and not payload.item_details and not payload.user_token:
         repaired = await repair_payload_from_text(
             payload.raw_input,
@@ -178,51 +167,27 @@ async def simulate_review(payload: SimulateReviewRequest, http_request: Request)
         item = payload.item.model_dump() if payload.item is not None else {}
         context = _normalise_context(payload.context)
 
-    # Explicitly capture and bind the forced rating early
-    forced_rating = payload.forced_rating or payload.target_rating
-    # Support target_rating passed inside item_details for some legacy test scripts
-    if forced_rating is None and item:
-        forced_rating = item.get("forced_rating") or item.get("target_rating")
-
     result = await agent_graph.route_task_a(
         user_token=user_token,
         user_history=user_history,
         item=item,
         context=context,
-        forced_rating=forced_rating,
     )
 
-    # Provide HackAlign-compatible aliases while preserving original fields.
-    tone_confidence = result.get("tone_confidence") if result.get("tone_confidence") is not None else result.get("confidence", 0.0)
-    behavioural_basis = result.get("behavioural_basis") or result.get("reasoning", "")
-    
-    # Structural enforcement: force the response to match the target rating
-    final_rating = result.get("predicted_rating")
-    if forced_rating is not None:
-        final_rating = float(forced_rating)
+    out = SimulateReviewResponse(
+        predicted_rating=float(result.get("predicted_rating") or 0.0),
+        generated_review=result.get("generated_review") or "",
+        tone_confidence=float(result.get("tone_confidence") or 0.0),
+        behavioural_basis=result.get("behavioural_basis") or "",
+        llm_instrumentation=result.get("llm_instrumentation") or {"used": False, "provider": None, "model": None},
+    )
 
-    out = {
-        "predicted_rating": final_rating,
-        "generated_review": result.get("generated_review"),
-        "tone_confidence": tone_confidence,
-        "behavioural_basis": behavioural_basis,
-        "llm_instrumentation": result.get("llm_instrumentation") or {"used": False, "provider": None, "model": None},
-        # aliases preserved for HackAlign compatibility
-        "confidence": tone_confidence,
-        "reasoning": behavioural_basis,
-        "_internal": result,
-    }
     if payload.output_format.strip().lower() == "text":
-        pred = out.get('predicted_rating')
-        try:
-            pred_str = f"{float(pred):.1f}"
-        except Exception:
-            pred_str = str(pred)
         return PlainTextResponse(
-            f"Predicted rating: {pred_str}\n"
-            f"Review: {out['generated_review']}\n"
-            f"Confidence: {out['tone_confidence']}\n"
-            f"Reasoning: {out['behavioural_basis']}"
+            f"Predicted rating: {out.predicted_rating:.1f}\n"
+            f"Review: {out.generated_review}\n"
+            f"Confidence: {out.tone_confidence}\n"
+            f"Reasoning: {out.behavioural_basis}"
         )
     return out
 

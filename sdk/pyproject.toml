@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arche-sdk"
+version = "0.2.0"
+description = "Async Python client for the ARCHE behavioral-simulation and recommendation API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.28"]
+
+[tool.setuptools]
+packages = ["sdk"]
+
+[tool.setuptools.package-dir]
+sdk = "."

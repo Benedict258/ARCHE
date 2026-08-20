@@ -26,7 +26,11 @@ SOURCES = {
         "test": DATA / "amazon_processed" / "test.json",
         "catalog_lookup": DATA / "amazon_raw" / "products.jsonl",
         "history_limit": 40,
-        "catalog_limit": 120,
+        # Wide enough that collaborative-filtering neighbors (drawn from the
+        # full item universe in train.json) actually have a chance to land
+        # inside the benchmark catalog — a 120-item slice made every CF
+        # neighbor land outside the pool, silently zeroing the signal out.
+        "catalog_limit": 2000,
     },
     "goodreads": {
         "train": DATA / "goodreads_processed" / "train.json",
@@ -229,8 +233,12 @@ def source_category_and_name(source: str, row: dict[str, Any], lookup: dict[str,
         lookup_row = lookup.get(item_id, {})
         item_name = safe_text(row.get("title") or lookup_row.get("item_name") or item_id, limit=120)
         item_category = normalize_category(lookup_row.get("item_category") or row.get("main_category") or "shopping")
-        rating = row.get("rating") or row.get("stars") or 3
-        review_text = row.get("text") or row.get("review_text") or ""
+        # AmazonPipeline preserves the raw Amazon Reviews field names (`overall`,
+        # `reviewText`) straight through into the processed train/test splits —
+        # match those first; the generic `rating`/`text` fallbacks are for any
+        # differently-shaped source someone points this at later.
+        rating = row.get("overall") or row.get("rating") or row.get("stars") or 3
+        review_text = row.get("reviewText") or row.get("text") or row.get("review_text") or ""
         meta = {"store": lookup_row.get("metadata", {}).get("store"), "brand": lookup_row.get("metadata", {}).get("brand")}
         return f"amazon:{item_id}", item_name, item_category, safe_text(review_text), meta, int(float(rating))
 

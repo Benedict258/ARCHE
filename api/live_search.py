@@ -12,7 +12,14 @@ from typing import Any
 
 import httpx
 
+from agents.call_budget import CallBudget
 from agents.simulation_agent import SimulationAgent
+from api.metrics import live_search_calls_total
+
+_live_search_budget = CallBudget(
+    max_calls=int(os.getenv("ARCHE_LIVE_SEARCH_BUDGET_PER_MINUTE", "30")),
+    window_seconds=60,
+)
 
 
 @dataclass
@@ -149,6 +156,11 @@ class LiveSearchService:
         if not query.strip():
             return []
 
+        if not _live_search_budget.allow():
+            provider = "serper" if self.serper_api_key else "duckduckgo"
+            live_search_calls_total.labels(provider=provider, outcome="budget_exceeded").inc()
+            return []
+
         # Added global retry for search to handle transient network issues
         max_retries = 2
         last_exc = None
@@ -168,8 +180,10 @@ class LiveSearchService:
                     self.logger.warning("Live search attempt %d failed: %s. Retrying...", attempt + 1, str(e))
                     await asyncio.sleep(1)
                     continue
+                live_search_calls_total.labels(provider="serper" if self.serper_api_key else "duckduckgo", outcome="error").inc()
                 raise e
             except Exception as e:
+                live_search_calls_total.labels(provider="serper" if self.serper_api_key else "duckduckgo", outcome="error").inc()
                 raise e
 
         return []
@@ -214,6 +228,7 @@ class LiveSearchService:
             len(results),
             elapsed_ms,
         )
+        live_search_calls_total.labels(provider="serper", outcome="success").inc()
         return results
 
     async def _search_duckduckgo(self, query: str, num_results: int = 10) -> list[LiveSearchResult]:
@@ -264,6 +279,7 @@ class LiveSearchService:
             len(results),
             elapsed_ms,
         )
+        live_search_calls_total.labels(provider="duckduckgo", outcome="success").inc()
         return results
 
     @staticmethod

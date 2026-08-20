@@ -11,7 +11,12 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 try:
     from dotenv import load_dotenv
@@ -19,18 +24,19 @@ try:
 except Exception:
     pass
 
+from api.logging_config import configure_logging, request_id_var
+from api.metrics import http_request_duration_seconds, http_requests_total
+from api.rate_limit import limiter, RATE_LIMIT_STANDARD
+
 _LOG_LEVEL = os.getenv("ARCHE_LOG_LEVEL", "INFO").upper()
-logging.basicConfig(
-    level=getattr(logging, _LOG_LEVEL, logging.INFO),
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+configure_logging(_LOG_LEVEL)
 
 from memory.memory_manager import MemoryManager
 from api.routes.task_a import router as task_a_router
 from api.routes.task_b import router as task_b_router
 from orchestrator import LangGraphStyleOrchestrator
 from data.dataset_loader import UnifiedDatasetLoader
-from agents.recommendation_scoring import build_simulation_from_history, get_simulation
+from agents.recommendation_scoring import get_simulation
 
 
 @asynccontextmanager
@@ -39,29 +45,71 @@ async def _lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="ARCHE API (hackathon)", version="0.1.0", lifespan=_lifespan)
+app = FastAPI(title="ARCHE API", version="0.2.0", lifespan=_lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
-# Configure CORS origins via environment variable for deployment. If not set,
-# default to allowing all origins for demo purposes. In production, set
-# `ALLOWED_ORIGINS` to a comma-separated list of allowed origins.
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+_MAX_BODY_BYTES = int(os.getenv("ARCHE_MAX_BODY_BYTES", "1000000"))
+
+
+@app.middleware("http")
+async def _max_body_size_middleware(request: Request, call_next):
+    """Rejects oversized request bodies before Pydantic ever parses them.
+
+    Belt-and-suspenders with the per-field Pydantic length limits on the
+    request models — this guards the case where Content-Length is present
+    but the body is huge, before any parsing work happens at all.
+    """
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > _MAX_BODY_BYTES:
+        return JSONResponse({"detail": "Request body too large"}, status_code=413)
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def _observability_middleware(request: Request, call_next):
+    """Assigns a per-request correlation ID and records Prometheus HTTP metrics."""
+    incoming_id = request.headers.get("x-request-id")
+    request_id = incoming_id or uuid4().hex
+    token = request_id_var.set(request_id)
+
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    finally:
+        request_id_var.reset(token)
+
+    duration = time.perf_counter() - started
+    path = request.url.path
+    http_requests_total.labels(method=request.method, path=path, status=str(response.status_code)).inc()
+    http_request_duration_seconds.labels(method=request.method, path=path).observe(duration)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+# Configure CORS origins via environment variable for deployment. Set
+# `ALLOWED_ORIGINS` to a comma-separated list of allowed origins in production.
+# Without it, only local dev origins are allowed — a wildcard is never used by
+# default since this API accepts unauthenticated requests.
 allowed = os.getenv("ALLOWED_ORIGINS")
 if allowed:
     origins = [o.strip() for o in allowed.split(",") if o.strip()]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 else:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(task_a_router)
 app.include_router(task_b_router)
 
@@ -154,17 +202,6 @@ class SimulationResponse(BaseModel):
     memory_sources: list[str]
 
 
-class RecommendRequest(BaseModel):
-    user_token: str | None = Field(default=None)
-    user_history: list[dict[str, Any]] = Field(default_factory=list)
-    context: dict[str, Any] = Field(default_factory=dict)
-    item_pool: list[dict[str, Any]] | None = Field(default=None)
-    n: int = 10
-    domain_filter: str | None = None
-    enable_live_data: bool = False
-
-
-
 class Recommendation(BaseModel):
     recommendation_id: str
     item_id: str | None = None
@@ -174,12 +211,6 @@ class Recommendation(BaseModel):
     recommendation_type: str
     exploration_factor: str
     explanation: str
-
-
-class RecommendationSet(BaseModel):
-    user_token: str
-    simulation_basis: str
-    recommendations: list[Recommendation]
 
 
 class ExplainRequest(BaseModel):
@@ -278,18 +309,18 @@ def _normalize_value(value: Any, default: str) -> str:
 
 def _extract_signal_rows(memory_payload: Dict[str, Any]) -> list[Any]:
     session_rows = memory_payload.get("session") or []
-    return [row for row in session_rows if isinstance(row, (list, tuple)) and len(row) >= 10]
+    return [row for row in session_rows if isinstance(row, dict)]
 
 def _row_category(row: Any) -> str | None:
-    if isinstance(row, (list, tuple)) and len(row) >= 5:
-        category = row[4]
+    if isinstance(row, dict):
+        category = row.get("item_category")
         if isinstance(category, str) and category.strip():
             return category.strip()
     return None
 
 def _row_event(row: Any) -> str | None:
-    if isinstance(row, (list, tuple)) and len(row) >= 3:
-        event = row[2]
+    if isinstance(row, dict):
+        event = row.get("event_type")
         if isinstance(event, str) and event.strip():
             return event.strip()
     return None
@@ -308,7 +339,7 @@ def _build_simulation_response(user_token: str, context: Dict[str, Any], memory_
     weighted_event_counts: Dict[str, float] = {}
     for index, row in enumerate(rows):
         event_type = _row_event(row)
-        item_token = row[3]
+        item_token = row.get("item_token")
         item_category = _row_category(row)
         weight = _weight_for_recency(index)
         if event_type:
@@ -443,6 +474,31 @@ async def health():
     return {"status": "ok"}
 
 
+def _provider_flags() -> Dict[str, bool]:
+    live_search_fallback = os.getenv("ENABLE_FALLBACK_WEBSEARCH", "true").strip().lower() in {"1", "true", "yes", "on"}
+    return {
+        "llm_configured": bool(os.getenv("GROQ_API_KEY") or os.getenv("ANTHROPIC_API_KEY")),
+        "embeddings_configured": bool(os.getenv("VOYAGE_API_KEY")),
+        "live_search_configured": bool(os.getenv("SERPER_API_KEY")) or live_search_fallback,
+    }
+
+
+@app.get("/v1/ready")
+async def ready(request: Request):
+    """Readiness probe: unlike /v1/health (pure liveness), this checks the one
+    hard dependency (MongoDB) and reports optional-provider configuration."""
+    _ensure_core_state()
+    memory_manager: MemoryManager = request.app.state.memory_manager
+    try:
+        await memory_manager.client.admin.command("ping")
+        mongo_ok = True
+    except Exception:
+        mongo_ok = False
+
+    payload = {"status": "ok" if mongo_ok else "unavailable", "mongo": mongo_ok, **_provider_flags()}
+    return JSONResponse(payload, status_code=200 if mongo_ok else 503)
+
+
 @app.get("/v1/ingest")
 async def ingest_help():
     return {
@@ -455,6 +511,11 @@ async def ingest_help():
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+
+@app.get("/readyz")
+async def readyz(request: Request):
+    return await ready(request)
 
 
 @app.get("/api/health")
@@ -534,6 +595,7 @@ async def api_dataset_status():
 
 
 @app.post("/v1/ingest", response_model=IngestResponse)
+@limiter.limit(RATE_LIMIT_STANDARD)
 async def ingest(payload: IngestRequest, request: Request):
     _ensure_core_state()
     privacy: PrivacyAbstraction = request.app.state.privacy
@@ -553,7 +615,7 @@ async def ingest(payload: IngestRequest, request: Request):
             sequence_position=payload.sequence_position,
         )
     stored_signal = privacy.sanitize_signal(signal)
-    memory_manager.update(anonymized_user_token or "", stored_signal)
+    await memory_manager.update(anonymized_user_token or "", stored_signal)
 
     return IngestResponse(
         status="accepted",
@@ -570,11 +632,12 @@ async def api_ingest(payload: IngestRequest, request: Request):
 
 
 @app.post("/v1/simulate", response_model=SimulationResponse)
+@limiter.limit(RATE_LIMIT_STANDARD)
 async def simulate(payload: SimulateRequest, request: Request):
     _ensure_app_state()
     privacy: PrivacyAbstraction = request.app.state.privacy
     anonymized_token = privacy.anonymize_token(payload.user_token, "user")
-    simulation = get_simulation(
+    simulation = await get_simulation(
         user_history_inline=payload.review_history,
         user_token=anonymized_token or payload.user_token,
         context=payload.context,

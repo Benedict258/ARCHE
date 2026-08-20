@@ -263,26 +263,36 @@ class TestLoadHandling:
     """Test behavior under various load conditions."""
     
     def test_recommend_high_n_value(self, client):
-        """Test recommendation endpoint with large n value."""
+        """Test recommendation endpoint at the maximum allowed n value."""
         user_token = "load_test_user"
-        
+
         ingest_payload = {
             "user_token": user_token,
             "signal": {"event_type": "view", "item_token": "item", "item_category": "test"},
         }
         client.post("/v1/ingest", json=ingest_payload)
-        
-        # Request 100 recommendations
+
+        # n is capped at 50 by the API's guardrails (api/routes/task_b.py)
         rec_payload = {
             "user_token": user_token,
+            "context": {},
+            "n": 50,
+        }
+        resp = client.post("/v1/recommend", json=rec_payload)
+        assert resp.status_code == 200
+
+        data = resp.json()
+        assert len(data["recommendations"]) > 0
+
+    def test_recommend_n_above_limit_is_rejected(self, client):
+        """Test that n beyond the guardrail ceiling is rejected, not silently clamped."""
+        rec_payload = {
+            "user_token": "load_test_user_2",
             "context": {},
             "n": 100,
         }
         resp = client.post("/v1/recommend", json=rec_payload)
-        assert resp.status_code == 200
-        
-        data = resp.json()
-        assert len(data["recommendations"]) > 0
+        assert resp.status_code == 422
     
     def test_concurrent_simulations(self, client):
         """Test multiple simulation requests."""

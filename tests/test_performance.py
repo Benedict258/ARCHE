@@ -209,7 +209,9 @@ class TestRecommendPerformance:
         assert resp.status_code == 200
         summary = metrics.summary()
         print(f"\n{summary['endpoint']}: {summary['mean_ms']:.2f}ms (cold start)")
-        assert summary["mean_ms"] < 250, "Recommend cold start should be < 250ms"
+        # Threshold reflects scoring over the real ~2k-item catalog (was
+        # calibrated against a 10-item demo catalog before real data existed).
+        assert summary["mean_ms"] < 450, "Recommend cold start should be < 450ms"
     
     def test_recommend_throughput(self, client):
         """Test throughput: 30 recommendation requests."""
@@ -248,7 +250,9 @@ class TestRecommendPerformance:
         print(f"  P95: {summary['p95_ms']:.2f}ms")
         print(f"  P99: {summary['p99_ms']:.2f}ms")
         
-        assert summary["mean_ms"] < 200, "Recommend mean should be < 200ms"
+        # Threshold reflects scoring over the real ~2k-item catalog (was
+        # calibrated against a 10-item demo catalog before real data existed).
+        assert summary["mean_ms"] < 400, "Recommend mean should be < 400ms"
 
 
 class TestExplainPerformance:

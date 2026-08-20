@@ -80,7 +80,6 @@ class ReviewGenerationAgent(BaseAgent):
         item: dict[str, Any],
         context: dict[str, Any],
         simulation: Any,
-        forced_rating: float | None = None,
     ) -> dict[str, Any]:
         """Prefer LLM-based generation with refined prompt. Falls back to natural heuristic."""
         # Try LLM path
@@ -97,11 +96,7 @@ class ReviewGenerationAgent(BaseAgent):
                 item_cat = item_details.get("category") or item_details.get("item_category", "General")
                 attributes = item_details.get("attributes", {})
 
-                # Predicted rating for dynamic enforcement
-                if forced_rating is not None:
-                    predicted_rating = int(round(forced_rating))
-                else:
-                    predicted_rating = cls._predict_rating(user_history, item_details, simulation)
+                predicted_rating = cls._predict_rating(user_history, item_details, simulation)
 
                 history_texts = [str(entry.get("review_text") or "") for entry in user_history]
                 style_profile = cls._extract_style_profile(history_texts)
@@ -197,9 +192,8 @@ DO NOT write any numerical scores inside the text body like '{predicted_rating}.
 """
                 if predicted_rating <= 2:
                     system_prompt += f"""
-[CRITICAL OVERRIDE: TARGET RATING IS DETRIMENTAL]
-The rating for this simulation is strictly enforced at {predicted_rating}/5. The user is highly dissatisfied with this product. You must write a critical, disappointed, or highly frustrated review that logically justifies a low score. 
-For this specific run, focus heavily on the 'high_wattage' consumption attribute (if present). Explain how it is completely inefficient and unacceptable for an afternoon on Lagos Island due to energy costs or grid strain. Completely ban positive words like 'exquisite', 'masterpiece', 'superb', or 'impeccable'. The tone must be blunt, straightforward, and critical."""
+[LOW-RATING TONE GUARDRAIL]
+The predicted rating for this item is {predicted_rating}/5 — the user is dissatisfied. Write a critical, disappointed, or frustrated review that logically justifies a low score, grounded in the item's actual attributes and the user's stated concerns (e.g. cost, reliability, service, fit for purpose). Completely ban positive words like 'exquisite', 'masterpiece', 'superb', or 'impeccable'. The tone must be blunt, straightforward, and critical."""
 
 
                 system_prompt += f"""
@@ -207,7 +201,7 @@ For this specific run, focus heavily on the 'high_wattage' consumption attribute
 (Applied for {register} personas)
 - ABSOLUTELY FORBIDDEN: "sha", "you feel me", "wella", "omo", "very okay", "i guess", "make sense", "totally my vibe", "top dollar".
 - COMPLEX SYNTAX ONLY: Use clear, structured, elevated vocabulary (e.g., 'unacceptable', 'impeccable', 'subpar', 'exquisite').
-- HIGH STATUS POSTURE: Victoria Island is a premium district; maintain social-status refinement.
+- HIGH STATUS POSTURE: If the region context implies an affluent or premium setting, maintain social-status refinement in tone.
 
 USER REGISTER & STYLE CALIBRATION:
 {calibration}
@@ -257,7 +251,7 @@ Write the review as one natural paragraph."""
                     
                     # Telemetry override for class tier
                     class_tier = "Premium/Elite" if register == "formal_english" else style_profile['sub_register']
-                    behavioural_basis = f"LLM-generated {class_tier} review for {item_name}; enforced rating={predicted_rating}"
+                    behavioural_basis = f"LLM-generated {class_tier} review for {item_name}; predicted_rating={predicted_rating}, simulation_basis={getattr(simulation, 'simulation_basis', 'unknown')}"
                     
                     return {
                         "predicted_rating": float(predicted_rating),
@@ -285,10 +279,7 @@ Write the review as one natural paragraph."""
         register = style_profile["register"]
         nigerian_context = cls.get_nigerian_calibration(register)
 
-        if forced_rating is not None:
-            predicted_rating = int(round(forced_rating))
-        else:
-            predicted_rating = cls._predict_rating(user_history, item, simulation)
+        predicted_rating = cls._predict_rating(user_history, item, simulation)
 
         generated_review = cls._generated_review_text(
             history=user_history,
@@ -314,7 +305,7 @@ Write the review as one natural paragraph."""
 
         # Telemetry override for class tier
         class_tier = "Premium/Elite" if register == "formal_english" else style_profile['sub_register']
-        behavioural_basis = f"Fallback {class_tier} review for {item.get('name', 'item')}; enforced rating={predicted_rating}"
+        behavioural_basis = f"Fallback {class_tier} review for {item.get('name', 'item')}; predicted_rating={predicted_rating}, simulation_basis={getattr(simulation, 'simulation_basis', 'unknown')}"
 
         return {
             "predicted_rating": float(predicted_rating),

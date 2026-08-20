@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -7,12 +8,19 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from api.main import app
-from agents.recommendation_scoring import build_simulation_from_history, rank_catalog_against_simulation
+from agents.simulation_agent import SimulationAgent
+from agents.recommendation_pipeline import run_recommendation_pipeline
 from data.evaluation.task_a_evaluator import TaskAEvaluator
 from data.evaluation.task_b_evaluator import TaskBEvaluator
 
 ROOT = Path(__file__).resolve().parents[1]
 PURETEST = ROOT / "data" / "puretest"
+
+# Force every SimulationAgent onto its heuristic fallback path so benchmark
+# runs are deterministic and reproducible regardless of what LLM keys happen
+# to be configured in the environment — the same discipline tests/conftest.py
+# already applies to the pytest suite.
+SimulationAgent._init_llm = lambda self: (setattr(self, "llm", None), setattr(self, "llm_provider", None))
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -56,24 +64,42 @@ def run_task_a(client: TestClient, cases: list[dict[str, Any]]) -> tuple[dict[st
     return evaluator.evaluate(results), results
 
 
+async def _recommend_for_case(case: dict[str, Any], catalog: list[dict[str, Any]]) -> dict[str, Any]:
+    history = case.get("user_persona", {}).get("review_history", [])
+    context = case.get("context", {})
+    out = await run_recommendation_pipeline(
+        user_token=case["user_token"],
+        lookup_token=case["user_token"],
+        user_history=history,
+        context=context,
+        domain_filter="",
+        n=10,
+        item_pool=catalog,
+        enable_live_data=False,
+        live_query=None,
+        live_results_limit=5,
+        memory_manager=None,
+    )
+    recommended = [rec.get("item_id") for rec in out["recommendations"]]
+    return {
+        "user_token": case["user_token"],
+        "recommended_items": recommended,
+        "relevant_items": case.get("relevant_items") or case.get("ground_truth") or [],
+        "is_cold_start": bool(out.get("cold_start_handled")),
+        "user_domain": case.get("source"),
+    }
+
+
+async def _run_task_b_async(cases: list[dict[str, Any]], catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [await _recommend_for_case(case, catalog) for case in cases]
+
+
 def run_task_b(cases: list[dict[str, Any]], catalog: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Runs each case through the real recommendation pipeline (agents/recommendation_pipeline.py) —
+    the same code /v1/recommend serves — against the fixed puretest catalog so
+    `relevant_items` (drawn from that catalog) are meaningfully comparable."""
     evaluator = TaskBEvaluator()
-    results: list[dict[str, Any]] = []
-    for case in cases:
-        history = case.get("user_persona", {}).get("review_history", [])
-        context = case.get("context", {})
-        sim = build_simulation_from_history(history, context)
-        ranked = rank_catalog_against_simulation(sim, catalog, n=10)
-        recommended = [item.get("item_id") or item.get("key") for item in ranked]
-        results.append(
-            {
-                "user_token": case["user_token"],
-                "recommended_items": recommended,
-                "relevant_items": case.get("relevant_items") or case.get("ground_truth") or [],
-                "is_cold_start": bool(sim.get("cold_start_used")),
-                "user_domain": case.get("source"),
-            }
-        )
+    results = asyncio.run(_run_task_b_async(cases, catalog))
     return evaluator.evaluate(results, k=10), results
 
 

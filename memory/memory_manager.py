@@ -1,88 +1,57 @@
-import json
+import os
 import time
-import sqlite3
-import threading
-from hashlib import sha256
-from pathlib import Path
 from typing import Any, Dict
 
-from .local_vector_store import LocalVectorStore
+from motor.motor_asyncio import AsyncIOMotorClient
 
 
 class MemoryManager:
-    """Minimal MemoryManager using sqlite for metadata and LocalVectorStore for vectors.
+    """MongoDB-backed store for behavioral signals.
 
-    Provides `update(user_token, signal)` and `retrieve_all(user_token)` used by
-    the simulation engine prototype.
+    Provides `update(user_token, signal)` and `retrieve_all(user_token)` used
+    by the simulation engine. Accepts an injected `client` (e.g. a
+    `mongomock_motor.AsyncMongoMockClient`) so tests never touch a real
+    MongoDB instance.
     """
 
-    def __init__(self, db_path: str = "data/memory.db"):
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-        self._lock = threading.Lock()
-        self._ensure_tables()
-        self.vector_store = LocalVectorStore()
-
-    def _ensure_tables(self) -> None:
-        with self._lock:
-            c = self.conn.cursor()
-            c.execute(
-            """
-        CREATE TABLE IF NOT EXISTS signals(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_token TEXT,
-            event_type TEXT,
-            item_token TEXT,
-            item_category TEXT,
-            session_context TEXT,
-            engagement_depth REAL,
-            dwell_time_seconds INTEGER,
-            sequence_position INTEGER,
-            timestamp INTEGER
+    def __init__(self, mongo_url: str | None = None, db_name: str = "arche", client: Any = None):
+        # Motor's default serverSelectionTimeoutMS is 30s — far too slow for a
+        # request-serving API or a readiness probe. Fail fast instead.
+        self.client = client or AsyncIOMotorClient(
+            mongo_url or os.getenv("MONGODB_URL", "mongodb://localhost:27017"),
+            serverSelectionTimeoutMS=3000,
         )
-        """
-            )
-            self.conn.commit()
+        self.db = self.client[db_name]
+        self.signals = self.db["signals"]
+        self._indexes_ready = False
 
-    def update(self, user_token: str, signal: Dict[str, Any]) -> None:
-        with self._lock:
-            c = self.conn.cursor()
-            c.execute(
-            """
-        INSERT INTO signals(user_token,event_type,item_token,item_category,session_context,engagement_depth,dwell_time_seconds,sequence_position,timestamp)
-        VALUES(?,?,?,?,?,?,?,?,?)
-        """,
-            (
-                user_token,
-                signal.get("event_type"),
-                signal.get("item_token"),
-                signal.get("item_category"),
-                json.dumps(signal.get("session_context") or {}),
-                signal.get("engagement_depth"),
-                signal.get("dwell_time_seconds"),
-                signal.get("sequence_position"),
-                int(time.time()),
-            ),
-            )
-            self.conn.commit()
-        # persist minimal vector/key mapping for demo purposes
-        key = f"{user_token}:{signal.get('item_token') or ''}"
-        self.vector_store.add(
-            key,
-            self._text_to_vector(f"{signal.get('item_category') or ''}::{signal.get('item_token') or ''}"),
-            {"item_category": signal.get("item_category"), "item_token": signal.get("item_token")},
+    async def _ensure_indexes(self) -> None:
+        if self._indexes_ready:
+            return
+        await self.signals.create_index([("user_token", 1), ("timestamp", -1)])
+        self._indexes_ready = True
+
+    async def update(self, user_token: str, signal: Dict[str, Any]) -> None:
+        await self._ensure_indexes()
+        await self.signals.insert_one(
+            {
+                "user_token": user_token,
+                "event_type": signal.get("event_type"),
+                "item_token": signal.get("item_token"),
+                "item_category": signal.get("item_category"),
+                "session_context": signal.get("session_context") or {},
+                "engagement_depth": signal.get("engagement_depth"),
+                "dwell_time_seconds": signal.get("dwell_time_seconds"),
+                "sequence_position": signal.get("sequence_position"),
+                "timestamp": int(time.time()),
+            }
         )
 
-    def retrieve_all(self, user_token: str) -> Dict[str, Any]:
-        with self._lock:
-            c = self.conn.cursor()
-            c.execute("SELECT * FROM signals WHERE user_token=? ORDER BY id DESC LIMIT 50", (user_token,))
-            rows = c.fetchall()
-        is_cold = len(rows) == 0
-        return {"session": rows, "is_cold_start": is_cold}
-
-    @staticmethod
-    def _text_to_vector(text: str, dim: int = 16) -> list[float]:
-        digest = sha256(text.encode("utf-8")).digest()
-        return [round(digest[idx % len(digest)] / 255.0, 4) for idx in range(dim)]
+    async def retrieve_all(self, user_token: str) -> Dict[str, Any]:
+        await self._ensure_indexes()
+        cursor = self.signals.find({"user_token": user_token}).sort("timestamp", -1).limit(50)
+        rows = []
+        async for doc in cursor:
+            doc.pop("_id", None)
+            rows.append(doc)
+        return {"session": rows, "is_cold_start": len(rows) == 0}

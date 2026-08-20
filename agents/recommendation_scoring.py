@@ -221,11 +221,11 @@ def _history_from_memory_payload(memory_payload: dict[str, Any] | None) -> list[
 
     history: list[dict[str, Any]] = []
     for row in memory_payload.get("session") or []:
-        if not isinstance(row, (list, tuple)) or len(row) < 9:
+        if not isinstance(row, dict):
             continue
-        event_type = str(row[2] or "").lower()
-        engagement_depth = row[6]
-        dwell_time_seconds = row[7]
+        event_type = str(row.get("event_type") or "").lower()
+        engagement_depth = row.get("engagement_depth")
+        dwell_time_seconds = row.get("dwell_time_seconds")
         rating = 3
         if event_type in {"purchase", "save"}:
             rating = 5
@@ -236,7 +236,7 @@ def _history_from_memory_payload(memory_payload: dict[str, Any] | None) -> list[
         elif isinstance(engagement_depth, (int, float)) and float(engagement_depth) <= 0.25:
             rating = 2
 
-        session_context = row[5]
+        session_context = row.get("session_context")
         if isinstance(session_context, str):
             try:
                 session_context = json.loads(session_context)
@@ -244,20 +244,20 @@ def _history_from_memory_payload(memory_payload: dict[str, Any] | None) -> list[
                 session_context = {}
         history.append(
             {
-                "event_type": row[2],
-                "item_token": row[3],
-                "category": row[4],
+                "event_type": row.get("event_type"),
+                "item_token": row.get("item_token"),
+                "category": row.get("item_category"),
                 "session_context": session_context if isinstance(session_context, dict) else {},
                 "rating": rating,
                 "engagement_depth": engagement_depth,
                 "dwell_time_seconds": dwell_time_seconds,
-                "sequence_position": row[8],
+                "sequence_position": row.get("sequence_position"),
             }
         )
     return history
 
 
-def get_simulation(
+async def get_simulation(
     *,
     user_history_inline: list[dict[str, Any]] | None,
     user_token: str,
@@ -266,7 +266,7 @@ def get_simulation(
 ) -> dict[str, Any]:
     """
     Priority order for simulation:
-    1. Use inline history if provided (judges send this)
+    1. Use inline history if provided (callers send this)
     2. Fall back to database history if no inline history
     3. Cold start if neither exists
     """
@@ -275,7 +275,7 @@ def get_simulation(
 
     if memory_manager is not None:
         try:
-            memory_payload = memory_manager.retrieve_all(user_token)
+            memory_payload = await memory_manager.retrieve_all(user_token)
         except Exception:
             memory_payload = {}
         db_history = _history_from_memory_payload(memory_payload)
@@ -457,6 +457,17 @@ def score_item_against_simulation(item: dict[str, Any], simulation: dict[str, An
     try:
         if collab_score is not None:
             score += min(0.20, max(0.0, float(collab_score)) * 0.20)
+    except (TypeError, ValueError):
+        pass
+
+    # Semantic similarity between the user's simulated affinities and the
+    # item's text, when real embeddings are configured (see
+    # agents/catalog_semantic_index.py). Cosine similarity is already in
+    # [-1, 1]; only a positive match should contribute.
+    semantic_score = item.get("semantic_score")
+    try:
+        if semantic_score is not None:
+            score += min(0.20, max(0.0, float(semantic_score)) * 0.20)
     except (TypeError, ValueError):
         pass
 

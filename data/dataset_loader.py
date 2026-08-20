@@ -265,25 +265,3 @@ class UnifiedDatasetLoader:
             }
             for item in items
         ]
-
-    def seed_vector_store(self, vector_store, limit_per_source: int = 200) -> int:
-        catalog = self.load_catalog(limit_per_source=limit_per_source)
-        count = 0
-        for item in catalog:
-            text = f"{item['item_name']} | {item['item_category']} | {item.get('source', '')}"
-            from agents.retrieval_agent import RetrievalAgent
-
-            vector_store.add(
-                item["key"],
-                RetrievalAgent.text_to_vector(text),
-                {
-                    "item_name": item["item_name"],
-                    "item_category": item["item_category"],
-                    "source": item["source"],
-                    "price_tier": item.get("price_tier", "mid"),
-                    "description": item.get("description", ""),
-                    **(item.get("metadata") or {}),
-                },
-            )
-            count += 1
-        return count

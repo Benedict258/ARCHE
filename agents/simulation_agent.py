@@ -9,7 +9,18 @@ from typing import Any
 
 import httpx
 
+from agents.call_budget import CallBudget
+from api.metrics import llm_calls_total
 from .base_agent import BaseAgent, AgentState
+
+# Shared across every LLM call path in this class (call_llm and
+# simulate_brain_state both ultimately hit Groq/Anthropic) — one budget per
+# process, not per instance, since SimulationAgent is constructed fresh per
+# request in several call sites.
+_llm_budget = CallBudget(
+    max_calls=int(os.getenv("ARCHE_LLM_BUDGET_PER_MINUTE", "60")),
+    window_seconds=60,
+)
 
 
 class SimulationAgent(BaseAgent):
@@ -87,16 +98,15 @@ class SimulationAgent(BaseAgent):
         # TODO: Wire state updates through the graph
         return state
 
-    async def simulate_brain_state(self, user_token: str, memory_payload: dict[str, Any], 
-                                   context: dict[str, Any], target_rating: float | None = None) -> dict[str, Any]:
+    async def simulate_brain_state(self, user_token: str, memory_payload: dict[str, Any],
+                                   context: dict[str, Any]) -> dict[str, Any]:
         """Simulate the user's cognitive/behavioral state.
-        
+
         Args:
             user_token: User identifier hash
             memory_payload: User's interaction history from memory layer
             context: Current contextual signals (time, device, region, etc.)
-            target_rating: Optional forced rating to align brain state
-            
+
         Returns:
             Behavioral snapshot: current_intent, preference_cluster, affinities, 
             rejection_signals, engagement_mode, exploration_readiness, purchase_probability
@@ -124,21 +134,8 @@ class SimulationAgent(BaseAgent):
         class_tier = "Premium/Elite" if register == "formal_english" else "Standard/Local"
         
         time_context = context.get("time_of_day") or context.get("time_bucket") or "daytime"
-        region_raw = context.get("region") or context.get("region_tier") or "Lagos"
-        
-        # Zero-Schema Change Alternate Hack: Extract forced rating from region string
-        if "[FORCED_RATING=" in str(region_raw):
-            try:
-                parts = str(region_raw).split(" [FORCED_RATING=")
-                region_context = parts[0]
-                extracted_rating = int(parts[1].replace("]", ""))
-                if target_rating is None:
-                    target_rating = extracted_rating
-            except Exception:
-                region_context = region_raw
-        else:
-            region_context = region_raw
-        
+        region_context = context.get("region") or context.get("region_tier") or "the user's region"
+
         system_prompt = f"""[CRITICAL SYSTEM REVISION CONSTRAINT: ABSOLUTE VALUE FAITHFULNESS]
 You are acting as the unique human persona: {user_token}. 
 Dominant vocabulary style: {dominant_vocab_style}
@@ -167,13 +164,6 @@ Output ONLY valid JSON matching this schema:
   "behavioral_basis": "A brief one-sentence reasoning written in the user's class-appropriate tone ({class_tier})."
 }}"""
 
-        if target_rating is not None and target_rating <= 2:
-            system_prompt += f"""
-[CRITICAL OVERRIDE: TARGET RATING IS DETRIMENTAL]
-The rating for this simulation is strictly enforced at {target_rating}/5. The user is highly dissatisfied with this product. You must simulate a brain state that is critical, disappointed, or highly frustrated to logically justify a low score. 
-For this specific run, focus heavily on the 'high_wattage' consumption attribute (if applicable). Explain how it is completely inefficient and unacceptable for an afternoon on Lagos Island due to energy costs or grid strain. Completely ban positive sentiment reasoning. The tone must be blunt, straightforward, and critical."""
-
-
         user_prompt = f"""User interaction history:
 {json.dumps(memory_payload, indent=2)}
 
@@ -186,6 +176,9 @@ Return only JSON."""
 
         started = time.perf_counter()
         try:
+            if not _llm_budget.allow():
+                llm_calls_total.labels(provider=self.llm_provider or "unknown", operation="simulate_brain_state", outcome="budget_exceeded").inc()
+                raise RuntimeError("LLM budget exceeded")
             if self.llm_provider == "anthropic":
                 self.logger.info(
                     "llm_call_start agent=simulation operation=simulate_brain_state provider=anthropic model=claude-3-5-sonnet-20241022"
@@ -220,6 +213,7 @@ Return only JSON."""
                 self.groq_model if self.llm_provider == "groq" else "claude-3-5-sonnet-20241022",
                 elapsed_ms,
             )
+            llm_calls_total.labels(provider=self.llm_provider or "unknown", operation="simulate_brain_state", outcome="success").inc()
 
             return self._normalize_snapshot(snapshot)
 
@@ -233,6 +227,7 @@ Return only JSON."""
                 elapsed_ms,
                 str(e),
             )
+            llm_calls_total.labels(provider=self.llm_provider or "unknown", operation="simulate_brain_state", outcome="error").inc()
             print(f"LLM simulation failed: {e}, falling back to heuristic")
             return self._fallback_simulate(user_token, memory_payload, context)
 
@@ -248,6 +243,11 @@ Return only JSON."""
         started = time.perf_counter()
         provider = self.llm_provider or "unknown"
         model = self.groq_model if self.llm_provider == "groq" else "claude-3-5-sonnet-20241022"
+
+        if not _llm_budget.allow():
+            llm_calls_total.labels(provider=provider, operation="call_llm", outcome="budget_exceeded").inc()
+            raise RuntimeError("LLM budget exceeded")
+
         self.logger.info(
             "llm_call_start agent=simulation operation=call_llm provider=%s model=%s temperature=%s",
             provider,
@@ -270,6 +270,7 @@ Return only JSON."""
                     model,
                     elapsed_ms,
                 )
+                llm_calls_total.labels(provider=provider, operation="call_llm", outcome="success").inc()
                 return content
             except Exception as exc:
                 elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -280,6 +281,7 @@ Return only JSON."""
                     elapsed_ms,
                     str(exc),
                 )
+                llm_calls_total.labels(provider=provider, operation="call_llm", outcome="error").inc()
                 raise
 
         # Groq direct HTTP call
@@ -293,6 +295,7 @@ Return only JSON."""
                     model,
                     elapsed_ms,
                 )
+                llm_calls_total.labels(provider=provider, operation="call_llm", outcome="success").inc()
                 return content
             except Exception as exc:
                 elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -303,6 +306,7 @@ Return only JSON."""
                     elapsed_ms,
                     str(exc),
                 )
+                llm_calls_total.labels(provider=provider, operation="call_llm", outcome="error").inc()
                 raise
 
         raise RuntimeError("Unsupported LLM provider")
